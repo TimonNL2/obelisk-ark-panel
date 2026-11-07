@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --color-ink-950: #070b14;
+  --color-ink-900: #0b1220;
+  --color-ink-850: #0f1729;
+  --color-ink-800: #141d31;
+  --color-ink-700: #1d2840;
+  --color-ink-600: #2a3754;
+  --color-ink-500: #3d4b6b;
+  --color-ink-400: #64739a;
+  --color-ink-300: #94a1c2;
+  --color-ink-200: #c3cbe0;
+  --color-ink-100: #e6eaf4;
+
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-ember-400: #fbbf24;
+  --color-ember-500: #f59e0b;
+}
+
+html, body, #root { height: 100%; }
+body {
+  background: var(--color-ink-950);
+  color: var(--color-ink-100);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: color-mix(in oklab, var(--color-brand-400) 35%, transparent); }
+
+* { scrollbar-width: thin; scrollbar-color: var(--color-ink-600) transparent; }
+
+.num { font-variant-numeric: tabular-nums; }
+
+.input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-ink-600);
+  background: var(--color-ink-900);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-ink-100);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.input:focus { border-color: var(--color-brand-500); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-brand-500) 25%, transparent); }
+.input::placeholder { color: var(--color-ink-400); }
+.input:disabled { opacity: .6; }
+select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a1c2' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .7rem center; padding-right: 2rem; }
+
+.console-line { white-space: pre-wrap; word-break: break-word; }
+
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot { animation: none; }
+  * { transition: none !important; }
+}
+
+.cm-editor { height: 100%; font-size: 13px; }
+.cm-editor .cm-scroller { font-family: var(--font-mono); }

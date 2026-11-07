@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# ARK Panel management command (installed to /usr/local/bin/arkpanel)
+set -euo pipefail
+
+APP_DIR="/opt/arkpanel"
+ENV_FILE="/etc/arkpanel/arkpanel.env"
+SERVICE_USER="arkpanel"
+NODE_BIN="$(command -v node || echo /usr/bin/node)"
+
+need_root() { [[ $EUID -eq 0 ]] || { echo "Run with sudo: sudo arkpanel $*"; exit 1; }; }
+cli() { sudo -u "$SERVICE_USER" -H "$NODE_BIN" "$APP_DIR/server/cli.js" "$@"; }
+
+usage() {
+  cat <<EOF
+ARK Panel
+
+Usage: sudo arkpanel <command>
+
+  status                     Show whether the panel is running
+  start | stop | restart     Control the panel (game servers keep running)
+  logs                       Follow the panel log
+  update                     Update the panel to the latest version from GitHub
+  create-user <name> [pw]    Add a panel user (password generated if omitted)
+  reset-password <name> [pw] Reset a user's password
+  list-users                 List panel users
+  stop-servers               Save and stop all running game servers
+  uninstall                  Remove the panel (asks before deleting game data)
+EOF
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  status)
+    systemctl status arkpanel --no-pager -l | head -n 12
+    ;;
+  start|stop|restart)
+    need_root "$cmd"
+    systemctl "$cmd" arkpanel
+    echo "Panel ${cmd}ed."
+    [[ "$cmd" == "stop" ]] && echo "Note: game servers keep running. Use 'arkpanel stop-servers' to stop them."
+    ;;
+  logs)
+    journalctl -u arkpanel -f -n 100
+    ;;
+  update)
+    need_root update
+    echo "Updating ARK Panel..."
+    sudo -u "$SERVICE_USER" -H git -C "$APP_DIR" pull --ff-only
+    bash "$APP_DIR/install.sh" --update
+    ;;
+  create-user|reset-password)
+    need_root "$cmd"
+    [[ -n "${1:-}" ]] || { echo "Usage: sudo arkpanel $cmd <username> [password]"; exit 1; }
+    systemctl stop arkpanel
+    cli "$cmd" "$@" || true
+    systemctl start arkpanel
+    ;;
+  list-users)
+    need_root list-users
+    cli list-users
+    ;;
+  stop-servers)
+    need_root stop-servers
+    cli stop-all 240
+    ;;
+  uninstall)
+    need_root uninstall
+    read -r -p "Remove ARK Panel? Running game servers will be stopped. [y/N] " a
+    [[ "$a" =~ ^[Yy]$ ]] || exit 0
+    # shellcheck disable=SC1090
+    DATA_DIR="$(. "$ENV_FILE" 2>/dev/null; echo "${DATA_DIR:-/var/lib/arkpanel}")"
+    systemctl stop arkpanel || true
+    cli stop-all 240 || true
+    systemctl disable --now arkpanel-servers arkpanel 2>/dev/null || true
+    rm -f /etc/systemd/system/arkpanel.service /etc/systemd/system/arkpanel-servers.service /etc/sysctl.d/60-arkpanel.conf
+    systemctl daemon-reload
+    rm -rf "$APP_DIR" /etc/arkpanel
+    read -r -p "Also delete ALL game servers, saves and backups in $DATA_DIR? [y/N] " b
+    if [[ "$b" =~ ^[Yy]$ ]]; then
+      rm -rf "$DATA_DIR"
+      userdel "$SERVICE_USER" 2>/dev/null || true
+      echo "Game data deleted."
+    else
+      echo "Game data kept in $DATA_DIR."
+    fi
+    rm -f /usr/local/bin/arkpanel
+    echo "ARK Panel removed."
+    ;;
+  help|-h|--help|*)
+    usage
+    ;;
+esac
