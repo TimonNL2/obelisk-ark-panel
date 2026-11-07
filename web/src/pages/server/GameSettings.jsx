@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { RotateCcw, Search, Sparkles, X } from 'lucide-react';
 import { get, put } from '../../lib/api.js';
@@ -133,6 +133,40 @@ export default function GameSettings({ server }) {
 
   useEffect(() => { if (categories.length && !active) setActive(categories[0]); }, [categories, active]);
 
+  // On desktop the settings live in their own scroll box that fills the rest of the window,
+  // so clicking a category scrolls only that box instead of jumping the whole page.
+  const grid = useRef(null);
+  const scroller = useRef(null);
+  const autoScrolling = useRef(false);
+  const [boxHeight, setBoxHeight] = useState(null);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = grid.current;
+      const main = el?.closest('main');
+      if (!el || !main || window.innerWidth < 1024) { setBoxHeight(null); return; }
+      const offset = el.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop;
+      setBoxHeight(Math.max(420, main.clientHeight - offset - 40));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [data]);
+  useEffect(() => { scroller.current?.scrollTo({ top: 0 }); }, [search]);
+
+  // Highlight the category you are looking at while scrolling the box
+  const onBoxScroll = () => {
+    const box = scroller.current;
+    if (!box || autoScrolling.current || search) return;
+    const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 4;
+    let current = null;
+    for (const cat of categories) {
+      const sec = sections.current[cat];
+      if (sec && sec.offsetTop - 24 <= box.scrollTop) current = cat;
+    }
+    if (atBottom) current = categories[categories.length - 1];
+    if (current && current !== active) setActive(current);
+  };
+
   if (!data) return <Loading rows={4} />;
 
   const setValue = (k, v) => setValues((prev) => {
@@ -181,7 +215,19 @@ export default function GameSettings({ server }) {
   const jump = (cat) => {
     setActive(cat);
     setSearch('');
-    requestAnimationFrame(() => sections.current[cat]?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    requestAnimationFrame(() => {
+      const sec = sections.current[cat];
+      const box = scroller.current;
+      if (!sec) return;
+      if (box && boxHeight) {
+        autoScrolling.current = true;
+        box.scrollTo({ top: sec.offsetTop - 4, behavior: 'smooth' });
+        clearTimeout(jump.t);
+        jump.t = setTimeout(() => { autoScrolling.current = false; }, 700);
+      } else {
+        sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
   };
 
   const shownCats = categories.filter((c) => filtered.some((d) => d.category === c));
@@ -210,9 +256,9 @@ export default function GameSettings({ server }) {
         )}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
-        <nav className="hidden lg:block" aria-label="Setting categories">
-          <div className="sticky top-4 space-y-0.5">
+      <div ref={grid} className="grid gap-5 lg:grid-cols-[220px_1fr]" style={boxHeight ? { height: boxHeight } : undefined}>
+        <nav className="hidden min-h-0 overflow-y-auto lg:block" aria-label="Setting categories">
+          <div className="space-y-0.5">
             {categories.map((c) => {
               const n = customIn(c);
               const isActive = active === c && !search;
@@ -233,12 +279,13 @@ export default function GameSettings({ server }) {
           </div>
         </nav>
 
-        <div className="min-w-0 space-y-5">
+        <div ref={scroller} onScroll={onBoxScroll}
+          className={cx('relative min-w-0 space-y-5', boxHeight && 'min-h-0 overflow-y-auto overscroll-contain rounded-[14px] pr-1.5 pb-24')}>
           {shownCats.length === 0 && <Card className="px-5 py-12 text-center text-sm text-ink-400">No setting matches “{search}”.</Card>}
           {shownCats.map((cat) => {
             const defs = filtered.filter((d) => d.category === cat);
             return (
-              <section key={cat} ref={(el) => { sections.current[cat] = el; }} className="scroll-mt-4">
+              <section key={cat} ref={(el) => { sections.current[cat] = el; }} className="scroll-mt-4" data-category={cat}>
                 <Card>
                   <div className="flex items-center justify-between border-b border-ink-700/70 px-5 py-3.5">
                     <h3 className="text-[17px] font-semibold">{cat}</h3>
