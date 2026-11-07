@@ -170,10 +170,14 @@ sysctl --system >/dev/null 2>&1 || true
 step "Downloading the panel"
 if [[ -d "$APP_DIR/.git" ]]; then
   chown -R "$SERVICE_USER:$SERVICE_USER" "$APP_DIR"
-  as_user git -C "$APP_DIR" fetch --quiet origin
-  as_user git -C "$APP_DIR" checkout --quiet "$BRANCH" 2>/dev/null || true
-  as_user git -C "$APP_DIR" pull --quiet --ff-only || warn "git pull failed (local changes?), keeping the current version"
-  ok "Updated to $(as_user git -C "$APP_DIR" rev-parse --short HEAD)"
+  # The code folder always mirrors GitHub exactly: local changes (e.g. npm touching
+  # package-lock.json) are discarded. Settings and game data live elsewhere.
+  if as_user git -C "$APP_DIR" fetch --quiet origin "$BRANCH" \
+     && as_user git -C "$APP_DIR" checkout --quiet --force -B "$BRANCH" "origin/$BRANCH"; then
+    ok "Updated to $(as_user git -C "$APP_DIR" rev-parse --short HEAD)"
+  else
+    warn "Could not download the latest version, keeping the current one"
+  fi
 else
   rm -rf "$APP_DIR"
   git clone --quiet --depth 1 --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
@@ -184,7 +188,7 @@ fi
 step "Building the panel (this takes a minute)"
 # Build tools (Vite, React, ...) are only needed to build the web interface;
 # remove them afterwards so the installed panel stays small.
-as_user bash -c "cd '$APP_DIR' && npm ci --no-audit --no-fund --loglevel=error && npm run build --silent && npm prune --omit=dev --no-audit --no-fund --loglevel=error" >/tmp/arkpanel-build.log 2>&1 \
+as_user bash -c "cd '$APP_DIR' && npm ci --no-audit --no-fund --loglevel=error && npm run build --silent && npm prune --omit=dev --no-save --no-audit --no-fund --loglevel=error" >/tmp/arkpanel-build.log 2>&1 \
   || { tail -30 /tmp/arkpanel-build.log; die "Build failed, see /tmp/arkpanel-build.log"; }
 chmod 750 "$APP_DIR"
 ok "Panel built"

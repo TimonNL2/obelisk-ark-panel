@@ -48,8 +48,12 @@ case "$cmd" in
   update)
     need_root update
     echo "Updating Obelisk..."
-    as_user git -C "$APP_DIR" pull --ff-only
-    bash "$APP_DIR/install.sh" --update
+    BRANCH="$(as_user git -C "$APP_DIR" rev-parse --abbrev-ref HEAD)"
+    # Mirror GitHub exactly (local changes in the code folder are discarded; data lives elsewhere)
+    as_user git -C "$APP_DIR" fetch --quiet origin "$BRANCH"
+    as_user git -C "$APP_DIR" checkout --quiet --force -B "$BRANCH" "origin/$BRANCH"
+    # run the installer from the freshly downloaded code
+    ARKPANEL_BRANCH="$BRANCH" bash "$APP_DIR/install.sh" --update
     ;;
   create-user|reset-password)
     need_root "$cmd"
