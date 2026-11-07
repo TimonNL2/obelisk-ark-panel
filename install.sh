@@ -17,6 +17,10 @@
 #
 set -euo pipefail
 
+# Everything runs inside main() so bash reads the whole script before executing it
+# (important when the script is piped from curl).
+main() {
+
 # Change this to your own repository after forking / pushing it to GitHub.
 DEFAULT_REPO="https://github.com/TimonNL2/obelisk-ark-panel.git"
 
@@ -42,25 +46,30 @@ ok()    { echo "    ${C_GREEN}✓${C_RESET} $*"; }
 warn()  { echo "    ${C_YELLOW}!${C_RESET} $*"; }
 die()   { echo; echo "${C_RED}${C_BOLD}Error:${C_RESET} $*" >&2; exit 1; }
 
-TTY=""
-if [[ -z "${ARKPANEL_YES:-}" ]] && { : </dev/tty; } 2>/dev/null; then TTY="/dev/tty"; fi
+# Only ask questions when the script runs in a real terminal ("sudo bash install.sh").
+# When piped ("curl ... | sudo bash") we never read from /dev/tty: sudo-rs (default on
+# Ubuntu 25.10+) does not forward keyboard input in that case, which would hang forever.
+INTERACTIVE=0
+if [[ -z "${ARKPANEL_YES:-}" && -t 0 ]]; then INTERACTIVE=1; fi
 
 ask() { # ask "Question" "default" -> echoes answer
   local q="$1" def="$2" ans=""
-  if [[ -n "$TTY" ]]; then
-    read -r -p "    $q ${C_DIM}[$def]${C_RESET}: " ans <"$TTY" || true
+  if [[ $INTERACTIVE -eq 1 ]]; then
+    read -r -p "    $q ${C_DIM}[$def]${C_RESET}: " ans || true
   fi
   echo "${ans:-$def}"
 }
 ask_secret() {
   local q="$1" ans=""
-  if [[ -n "$TTY" ]]; then
-    read -r -s -p "    $q: " ans <"$TTY" || true
+  if [[ $INTERACTIVE -eq 1 ]]; then
+    read -r -s -p "    $q: " ans || true
     echo >&2
   fi
   echo "$ans"
 }
-as_user() { sudo -u "$SERVICE_USER" -H "$@"; }
+# Run a command as the service user. runuser is part of util-linux, so this
+# works with classic sudo, sudo-rs or no sudo at all.
+as_user() { runuser -u "$SERVICE_USER" -- env HOME="$(getent passwd "$SERVICE_USER" | cut -d: -f6)" "$@"; }
 
 # ----------------------------------------------------------------- checks
 [[ $EUID -eq 0 ]] || die "Run this script as root, e.g.: curl -fsSL <url>/install.sh | sudo bash"
@@ -88,6 +97,10 @@ else
     die "Set the repository URL first: edit DEFAULT_REPO in install.sh, or run with ARKPANEL_REPO=https://github.com/<you>/<repo>.git"
   fi
   step "Configuration"
+  if [[ $INTERACTIVE -eq 0 && -z "${ARKPANEL_YES:-}" ]]; then
+    info "No keyboard input available (piped install), using the defaults."
+    info "For the interactive installer: curl -fsSL <url>/install.sh -o install.sh && sudo bash install.sh"
+  fi
   PANEL_PORT="${ARKPANEL_PORT:-$(ask "Web panel port" "8080")}"
   DATA_DIR="${ARKPANEL_DATA_DIR:-$(ask "Data folder (game servers + backups, needs lots of space)" "/var/lib/arkpanel")}"
   [[ "$PANEL_PORT" =~ ^[0-9]+$ ]] || die "Invalid port: $PANEL_PORT"
@@ -237,7 +250,7 @@ if [[ "$USER_COUNT" == "0" ]]; then
   step "Creating the admin account"
   ADMIN_USER="${ARKPANEL_ADMIN_USER:-$(ask "Admin username" "admin")}"
   ADMIN_PASS="${ARKPANEL_ADMIN_PASSWORD:-}"
-  if [[ -z "$ADMIN_PASS" && -n "$TTY" ]]; then
+  if [[ -z "$ADMIN_PASS" && $INTERACTIVE -eq 1 ]]; then
     ADMIN_PASS="$(ask_secret "Admin password (min. 8 characters, empty = generate)")"
   fi
   if [[ -z "$ADMIN_PASS" ]]; then
@@ -274,3 +287,6 @@ echo
 echo "    ${C_DIM}Forward the game ports of your servers (UDP, e.g. 7777) on your router to this machine.${C_RESET}"
 echo "    ${C_DIM}Don't expose the panel port to the internet without HTTPS (see README).${C_RESET}"
 echo
+}
+
+main "$@"

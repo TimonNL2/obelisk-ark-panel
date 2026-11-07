@@ -39,7 +39,14 @@ Use a **VM** (not an LXC container) with Ubuntu Server:
 
 ## Install
 
-On a fresh Ubuntu Server, run:
+On a fresh Ubuntu Server, download the installer and run it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TimonNL2/obelisk-ark-panel/main/install.sh -o install.sh
+sudo bash install.sh
+```
+
+Prefer a one-liner? This works too, but it can't ask questions (it uses the defaults: port 8080, data in `/var/lib/arkpanel`, user `admin` with a generated password that is printed at the end):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TimonNL2/obelisk-ark-panel/main/install.sh | sudo bash

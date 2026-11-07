@@ -8,7 +8,8 @@ SERVICE_USER="arkpanel"
 NODE_BIN="$(command -v node || echo /usr/bin/node)"
 
 need_root() { [[ $EUID -eq 0 ]] || { echo "Run with sudo: sudo arkpanel $*"; exit 1; }; }
-cli() { sudo -u "$SERVICE_USER" -H "$NODE_BIN" "$APP_DIR/server/cli.js" "$@"; }
+as_user() { runuser -u "$SERVICE_USER" -- env HOME="$(getent passwd "$SERVICE_USER" | cut -d: -f6)" "$@"; }
+cli() { as_user "$NODE_BIN" "$APP_DIR/server/cli.js" "$@"; }
 
 usage() {
   cat <<EOF
@@ -47,7 +48,7 @@ case "$cmd" in
   update)
     need_root update
     echo "Updating Obelisk..."
-    sudo -u "$SERVICE_USER" -H git -C "$APP_DIR" pull --ff-only
+    as_user git -C "$APP_DIR" pull --ff-only
     bash "$APP_DIR/install.sh" --update
     ;;
   create-user|reset-password)
