@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Cog, Wrench, Users, KeyRound, Info, Plus, Trash2, Download, RefreshCw, CheckCircle2, ArrowUpCircle, Save } from 'lucide-react';
+import { Cog, Wrench, Users, KeyRound, Info, Plus, Trash2, Download, RefreshCw, CheckCircle2, ArrowUpCircle, Save, Archive, HardDrive } from 'lucide-react';
 import { del, get, post, put } from '../lib/api.js';
 import { usePoll } from '../lib/hooks.js';
 import { dateTime, timeAgo } from '../lib/format.js';
 import { useApp } from '../App.jsx';
 import {
-  Alert, Badge, Button, Card, CardHeader, Field, Input, Loading, Modal, PageHeader, Select, Tabs, useAction, useConfirm, useToast,
+  Alert, Badge, Button, Card, CardHeader, Field, Input, Loading, Modal, PageHeader, Select, Tabs, Toggle, cx, useAction, useConfirm, useToast,
 } from '../components/ui.jsx';
 
 const TABS = [
   { id: 'general', label: 'General', icon: Cog },
+  { id: 'backups', label: 'Backups', icon: Archive },
   { id: 'tools', label: 'Tools', icon: Wrench },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'account', label: 'My account', icon: KeyRound },
@@ -37,7 +38,6 @@ function General() {
       <Card>
         <CardHeader title="Servers" />
         <div className="grid gap-4 p-5 sm:grid-cols-3">
-          <Field label="Keep scheduled backups" hint="Per server. Manual backups are never deleted automatically."><Input type="number" min={1} value={s.backupRetention} onChange={num('backupRetention')} /></Field>
           <Field label="Check for game updates every (min)"><Input type="number" min={10} value={s.updateCheckMinutes} onChange={num('updateCheckMinutes')} /></Field>
           <Field label="Graceful stop timeout (s)" hint="Wait this long after SaveWorld + DoExit before killing."><Input type="number" min={15} value={s.stopTimeoutSeconds} onChange={num('stopTimeoutSeconds')} /></Field>
           <Field label="First game port" hint="New servers get the next free port from here."><Input type="number" value={s.basePort} onChange={num('basePort')} /></Field>
@@ -62,6 +62,81 @@ function JobLog({ job, title, onClose }) {
         </>
       )}
     </Modal>
+  );
+}
+
+function BackupSettings() {
+  const [retention, setRetention] = useState(null);
+  const [form, setForm] = useState(null);
+  const [testResult, setTestResult] = useState(null);
+  const [showJob, setShowJob] = useState(false);
+  const [busy, run] = useAction();
+  const toast = useToast();
+  const { data, reload } = usePoll(() => get('/settings/offsite'), 3000);
+
+  useEffect(() => { get('/settings').then((s) => setRetention(s.backupRetention)); }, []);
+  useEffect(() => { if (data && !form) setForm(data.offsite); }, [data, form]);
+  if (!data || !form || retention === null) return <Loading />;
+
+  const status = data.status;
+  const saved = data.offsite;
+  const dirty = JSON.stringify(form) !== JSON.stringify(saved);
+
+  const test = () => run('test', async () => {
+    const r = await post('/settings/offsite/test', { path: form.path });
+    setTestResult(r);
+  });
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <CardHeader icon={Archive} title="Local backups" subtitle="Stored in the Obelisk data folder on this VM" />
+        <form className="flex flex-wrap items-end gap-4 p-5" onSubmit={(e) => { e.preventDefault(); run('ret', () => put('/settings', { backupRetention: retention }), 'Saved'); }}>
+          <Field label="Keep automatic backups (per server)" hint="Scheduled, before-update and before-restore backups. Manual backups are never deleted automatically." className="min-w-72 flex-1">
+            <Input type="number" min={1} max={500} value={retention} onChange={(e) => setRetention(Number(e.target.value))} />
+          </Field>
+          <Button type="submit" variant="primary" icon={Save} loading={busy === 'ret'}>Save</Button>
+        </form>
+      </Card>
+
+      <Card>
+        <CardHeader icon={HardDrive} title="Offsite copy" subtitle="A second copy of every backup on another disk or your NAS, so your saves survive a broken VM disk"
+          actions={saved.enabled ? <Badge color="green">On</Badge> : <Badge color="gray">Off</Badge>} />
+        <div className="space-y-4 p-5">
+          <Alert type="info" title="How to set it up">
+            Mount your NAS share or second disk on the VM under <code className="rounded bg-ink-800 px-1">/mnt</code> (for example <code className="rounded bg-ink-800 px-1">/mnt/nas</code>) and give the <code className="rounded bg-ink-800 px-1">arkpanel</code> user write access. See “Offsite backups” in the README for the exact commands. Then enter the folder below and click Test.
+          </Alert>
+          <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
+            <Field label="Folder">
+              <div className="flex gap-2">
+                <Input value={form.path} onChange={(e) => { setForm({ ...form, path: e.target.value }); setTestResult(null); }} placeholder="/mnt/nas/ark-backups" />
+                <Button onClick={test} loading={busy === 'test'} disabled={!form.path}>Test</Button>
+              </div>
+              {testResult && <p className="mt-1.5 text-xs text-beam-online">Writable{testResult.free !== null ? `, ${(testResult.free / 1024 ** 3).toFixed(0)} GB free` : ''}.</p>}
+            </Field>
+            <Field label="Keep per server" hint="Newest copies kept there.">
+              <Input type="number" min={1} max={1000} value={form.keep} onChange={(e) => setForm({ ...form, keep: Number(e.target.value) })} />
+            </Field>
+          </div>
+          <Toggle checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} label="Copy every new backup to this folder" description="Server and cluster backups are copied right after they are made." />
+          {status && (
+            <div className={cx('rounded-lg px-3 py-2 text-sm', status.ok ? 'bg-beam-online/10 text-emerald-100' : 'bg-red-500/10 text-red-200')}>
+              Last {status.ok ? 'copy' : 'error'}: {status.message} <span className="text-ink-400">({timeAgo(status.at)})</span>
+            </div>
+          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            {saved.enabled && !dirty && (
+              <Button icon={RefreshCw} loading={busy === 'sync' || data.job?.running} onClick={() => run('sync', async () => { await post('/settings/offsite/sync'); setShowJob(true); await reload(); })}>Copy existing backups now</Button>
+            )}
+            <Button variant="primary" icon={Save} disabled={!dirty} loading={busy === 'save'}
+              onClick={() => run('save', async () => { const r = await put('/settings/offsite', form); setForm(r.offsite); await reload(); toast.success(r.offsite.enabled ? 'Offsite copies are on' : 'Offsite copies are off'); })}>
+              Save
+            </Button>
+          </div>
+        </div>
+      </Card>
+      <JobLog job={showJob ? data.job : null} title="Copying backups" onClose={() => setShowJob(false)} />
+    </div>
   );
 }
 
@@ -244,6 +319,7 @@ export default function Settings() {
       <Tabs tabs={TABS} active={tab} onChange={(t) => navigate(`/settings/${t === 'general' ? '' : t}`)} />
       <div className="mt-5">
         {tab === 'general' && <General />}
+        {tab === 'backups' && <BackupSettings />}
         {tab === 'tools' && <Tools />}
         {tab === 'users' && <UsersTab />}
         {tab === 'account' && <Account />}

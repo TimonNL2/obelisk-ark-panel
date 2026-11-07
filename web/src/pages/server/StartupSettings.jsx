@@ -15,6 +15,7 @@ function pick(s) {
     adminPassword: s.adminPassword, clusterId: s.clusterId || '', ports: { ...s.ports }, battleye: !!s.battleye,
     crossplay: s.crossplay !== false, autoStart: !!s.autoStart, autoRestart: !!s.autoRestart, autoUpdate: !!s.autoUpdate, virtualDisplay: !!s.virtualDisplay,
     motd: s.motd || '', motdDuration: s.motdDuration || 30, extraArgs: s.extraArgs || '', extraUrlParams: s.extraUrlParams || '',
+    mapModId: s.mapModId || '', backupBeforeUpdate: s.backupBeforeUpdate !== false, memoryLimitGB: s.memoryLimitGB || 0,
   };
 }
 
@@ -35,6 +36,7 @@ export default function StartupSettings({ server, onSaved }) {
 
   const set = (p) => setForm((f) => ({ ...f, ...p }));
   const mapValue = game.maps.some((m) => m.id === form.map) ? form.map : CUSTOM;
+  const mapInfo = game.maps.find((m) => m.id === form.map);
   const running = ['running', 'starting'].includes(server.runtime.state);
   const dirty = JSON.stringify(pick(server)) !== JSON.stringify(form);
 
@@ -92,6 +94,16 @@ export default function StartupSettings({ server, onSaved }) {
             </Select>
             {mapValue === CUSTOM && <Input className="mt-2" required value={form.map} placeholder="MapName_WP" onChange={(e) => { setCustomMap(e.target.value); set({ map: e.target.value }); }} />}
           </Field>
+          {(mapValue === CUSTOM || mapInfo?.modHint || form.mapModId) && (
+            <Field label="Map mod ID" hint={mapInfo?.note || 'For a mod map: the CurseForge (ASA) or Workshop (ASE) ID of the map. It is always loaded first.'}>
+              <div className="flex gap-2">
+                <Input inputMode="numeric" value={form.mapModId} placeholder="none" onChange={(e) => set({ mapModId: e.target.value.replace(/\D/g, '') })} />
+                {mapInfo?.modHint && form.mapModId !== mapInfo.modHint && (
+                  <Button className="h-[38px]" onClick={() => set({ mapModId: mapInfo.modHint })}>Use {mapInfo.modHint}</Button>
+                )}
+              </div>
+            </Field>
+          )}
           <Field label="Max players"><Input type="number" min={1} max={255} value={form.maxPlayers} onChange={(e) => set({ maxPlayers: Number(e.target.value) })} /></Field>
           <Field label="Server password" hint="Leave empty for a public server."><Input value={form.serverPassword} autoComplete="off" onChange={(e) => set({ serverPassword: e.target.value })} placeholder="(none)" /></Field>
           <Field label="Admin password" hint="Used by the panel for RCON. Changing it requires a restart.">
@@ -125,6 +137,17 @@ export default function StartupSettings({ server, onSaved }) {
           <Toggle checked={form.autoStart} onChange={(v) => set({ autoStart: v })} label="Start automatically" description="Start this server when the panel / machine boots." />
           <Toggle checked={form.autoRestart} onChange={(v) => set({ autoRestart: v })} label="Restart after a crash" description="Automatically start the server again when it stops unexpectedly." />
           <Toggle checked={form.autoUpdate} onChange={(v) => set({ autoUpdate: v })} label="Update automatically" description="When a game update is released, warn players 5 minutes, update and restart." />
+          <Toggle checked={form.backupBeforeUpdate} onChange={(v) => set({ backupBeforeUpdate: v })} label="Back up before game updates" description="Makes a restore point of the save data before every update (manual and automatic)." />
+          <div className="flex flex-wrap items-center justify-between gap-4 py-2.5">
+            <span className="min-w-0">
+              <span className="block text-sm text-ink-100">Memory limit</span>
+              <span className="mt-0.5 block text-xs text-ink-400">ARK slowly uses more memory over time. Above this limit the server restarts (with a 5 minute warning when players are online). 0 = off. Tip: about 80% of the RAM you can spare for this server.</span>
+            </span>
+            <div className="flex items-center gap-2">
+              <Input type="number" min={0} max={1024} step={1} className="w-24 text-right" value={form.memoryLimitGB} onChange={(e) => set({ memoryLimitGB: Number(e.target.value) })} aria-label="Memory limit in GB" />
+              <span className="text-sm text-ink-300">GB</span>
+            </div>
+          </div>
           {server.game === 'asa'
             ? <Toggle checked={form.crossplay} onChange={(v) => set({ crossplay: v })} label="Crossplay" description="Allow Xbox, PlayStation and Windows Store players (-ServerPlatform=PC+XSX+WINGDK+PS5)." />
             : <Toggle checked={form.crossplay} onChange={(v) => set({ crossplay: v })} label="Crossplay (Epic)" description="Allow Epic Games Store players to join (-crossplay)." />}

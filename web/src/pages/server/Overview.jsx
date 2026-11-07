@@ -64,7 +64,7 @@ export default function Overview({ server }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric icon={Users} label="Players" value={alive ? `${r.playerCount} / ${server.maxPlayers}` : '—'} points={hist.map((h) => h.players)} max={Math.max(5, server.maxPlayers / 4)} color="#a78bfa" />
         <Metric icon={Cpu} label="CPU (of host)" value={alive ? pct(r.cpu) : '—'} points={hist.map((h) => h.cpu)} max={100} />
-        <Metric icon={MemoryStick} label="Memory" value={alive ? bytes(r.memory) : '—'} sub={alive ? `${r.processes} process(es)` : ''} points={hist.map((h) => h.mem)} color="#f59e0b" />
+        <Metric icon={MemoryStick} label="Memory" value={alive ? bytes(r.memory) : '—'} sub={alive ? `${r.processes} process(es)${server.memoryLimitGB ? `, limit ${server.memoryLimitGB} GB` : ''}` : (server.memoryLimitGB ? `limit ${server.memoryLimitGB} GB` : '')} points={hist.map((h) => h.mem)} color="#f59e0b" />
         <Metric icon={Clock} label="Uptime" value={alive && r.startedAt ? duration(Date.now() - r.startedAt) : '—'} sub={r.rconOk ? 'RCON connected' : alive ? 'Waiting for RCON...' : ''} />
       </div>
 

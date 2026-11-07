@@ -28,6 +28,11 @@ test('ASA with virtual display runs inside xvfb-run with -dx11', () => {
   assert.equal(l.env.STEAM_COMPAT_DATA_PATH, '/p/s1');
 });
 
+test('map mod is loaded first and not duplicated', () => {
+  const l = buildLaunch({ ...asa, mapModId: '988598', mods: [{ id: '111', enabled: true }, { id: '988598', enabled: true }] }, { ...ctx, xvfbRun: null });
+  assert.ok(l.args.includes('-mods=988598,111'));
+});
+
 test('ASA falls back to plain proton when xvfb is missing', () => {
   const l = buildLaunch(asa, { ...ctx, xvfbRun: null });
   assert.equal(l.cmd, '/t/proton/GE-Proton10-34/proton');

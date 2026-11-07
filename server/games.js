@@ -20,7 +20,7 @@ export const GAMES = {
       { id: 'Extinction_WP', name: 'Extinction' },
       { id: 'Ragnarok_WP', name: 'Ragnarok' },
       { id: 'Valguero_WP', name: 'Valguero' },
-      { id: 'Astraeos_WP', name: 'Astraeos' },
+      { id: 'Astraeos_WP', name: 'Astraeos', modHint: '988598', note: 'Some hosts need the Astraeos map mod (988598). Only add it if the map does not load without it.' },
       { id: 'LostColony_WP', name: 'Lost Colony' },
     ],
   },
@@ -58,7 +58,12 @@ export const mapName = (server) => {
 };
 export const configPath = (installDir, server, file) => path.join(installDir, gameOf(server).configDir, file);
 
-const enabledMods = (server) => (server.mods || []).filter((m) => m.enabled !== false && String(m.id).trim()).map((m) => String(m.id).trim());
+/** Map mod (if any) first, then the enabled mods in load order, without duplicates. */
+const enabledMods = (server) => {
+  const ids = (server.mods || []).filter((m) => m.enabled !== false && String(m.id).trim()).map((m) => String(m.id).trim());
+  const mapMod = String(server.mapModId || '').trim();
+  return mapMod ? [mapMod, ...ids.filter((id) => id !== mapMod)] : ids;
+};
 
 /** Windows path for a Linux directory as seen from inside Wine/Proton (Z: maps to /). */
 const winePath = (p) => `Z:${p.replace(/\//g, '\\')}`;

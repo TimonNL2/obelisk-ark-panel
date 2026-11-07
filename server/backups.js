@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { paths, serverDir, clusterDir } from './config.js';
 import { db, getServer, getCluster, settings } from './db.js';
 import { runCommand } from './util/exec.js';
@@ -80,7 +81,12 @@ export async function createBackup(kind, id, type = 'manual') {
       }
     }
     fs.mkdirSync(t.dir, { recursive: true });
-    const name = `${stamp()}-${type}.tar.gz`;
+    // names have one-second resolution: never overwrite a backup made in the same second
+    let name = `${stamp()}-${type}.tar.gz`;
+    while (fs.existsSync(path.join(t.dir, name))) {
+      await sleep(1000);
+      name = `${stamp()}-${type}.tar.gz`;
+    }
     const partial = path.join(t.dir, `${name}.partial`);
     const args = ['-czf', partial, '-C', t.base];
     if (kind === 'server') args.push('--exclude=ShooterGame/Saved/Logs', '--exclude=ShooterGame/Saved/Crashes');
@@ -95,6 +101,14 @@ export async function createBackup(kind, id, type = 'manual') {
     const size = fs.statSync(path.join(t.dir, name)).size;
     logTo(`Backup created: ${name} (${(size / 1024 / 1024).toFixed(1)} MB)`);
     applyRetention(kind, id);
+    if (offsiteRoot()) {
+      try {
+        await copyOffsite(t, name);
+        logTo('Backup copied to the offsite location.');
+      } catch (err) {
+        logTo(`Offsite copy failed: ${err.message}`);
+      }
+    }
     return { name, size };
   } catch (err) {
     logTo(`Backup failed: ${err.message}`);
@@ -102,6 +116,104 @@ export async function createBackup(kind, id, type = 'manual') {
   } finally {
     running.delete(t.key);
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Offsite copies                                                       */
+/* A second copy of every backup on another disk / NAS mount, so saves  */
+/* survive a broken VM disk. Layout: <path>/obelisk-backups/<key>/...   */
+/* ------------------------------------------------------------------ */
+
+export function offsiteRoot() {
+  const o = settings().offsite;
+  return o?.enabled && o.path ? path.join(o.path, 'obelisk-backups') : null;
+}
+
+function setOffsiteStatus(ok, message) {
+  db.data.offsiteStatus = { ok, message, at: new Date().toISOString() };
+  db.save();
+}
+
+async function copyFileAtomic(src, dest) {
+  const tmp = `${dest}.partial`;
+  try {
+    await pipeline(fs.createReadStream(src), fs.createWriteStream(tmp));
+    await fs.promises.rename(tmp, dest);
+  } catch (err) {
+    await fs.promises.rm(tmp, { force: true });
+    throw err;
+  }
+}
+
+function offsiteRetention(dir) {
+  const keep = Math.max(1, Number(settings().offsite?.keep) || 30);
+  const files = fs.readdirSync(dir).filter((f) => NAME_RE.test(f)).sort((a, b) => b.localeCompare(a));
+  for (const f of files.slice(keep)) fs.rmSync(path.join(dir, f), { force: true });
+}
+
+async function copyOffsite(t, name) {
+  const root = offsiteRoot();
+  if (!root) return;
+  const dest = path.join(root, t.key);
+  try {
+    await fs.promises.mkdir(dest, { recursive: true });
+    await fs.promises.writeFile(path.join(dest, 'name.txt'), `${t.cluster ? 'Cluster' : 'Server'}: ${t.label}\n`);
+    await copyFileAtomic(path.join(t.dir, name), path.join(dest, name));
+    offsiteRetention(dest);
+    setOffsiteStatus(true, `Copied ${name} (${t.label})`);
+  } catch (err) {
+    setOffsiteStatus(false, err.message);
+    throw err;
+  }
+}
+
+/** Copy every local backup that is not offsite yet (e.g. after turning the feature on). */
+export async function syncOffsite(log = () => {}) {
+  const root = offsiteRoot();
+  if (!root) throw badRequest('Offsite copies are turned off');
+  let copied = 0;
+  for (const key of fs.readdirSync(paths.backups)) {
+    const dir = path.join(paths.backups, key);
+    if (!fs.statSync(dir).isDirectory()) continue;
+    const isCluster = key.startsWith('cluster-');
+    const owner = isCluster ? getCluster(key.slice(8)) : getServer(key);
+    const dest = path.join(root, key);
+    await fs.promises.mkdir(dest, { recursive: true });
+    if (owner) await fs.promises.writeFile(path.join(dest, 'name.txt'), `${isCluster ? 'Cluster' : 'Server'}: ${owner.name}\n`);
+    const files = fs.readdirSync(dir).filter((f) => NAME_RE.test(f)).sort((a, b) => b.localeCompare(a))
+      .slice(0, Math.max(1, Number(settings().offsite?.keep) || 30));
+    for (const f of files) {
+      if (fs.existsSync(path.join(dest, f))) continue;
+      log(`Copying ${key}/${f}...`);
+      await copyFileAtomic(path.join(dir, f), path.join(dest, f));
+      copied++;
+    }
+    offsiteRetention(dest);
+  }
+  setOffsiteStatus(true, `Sync finished, ${copied} file(s) copied`);
+  log(`Done: ${copied} backup(s) copied.`);
+  return copied;
+}
+
+/** Check that a folder can be used as offsite location: absolute, exists, writable, not the data disk folder. */
+export async function testOffsitePath(p) {
+  const dir = String(p || '').trim();
+  if (!path.isAbsolute(dir)) throw badRequest('Use an absolute path, e.g. /mnt/nas/ark');
+  const resolved = path.resolve(dir);
+  if (resolved === paths.backups || resolved.startsWith(path.dirname(paths.backups) + path.sep) || resolved === path.dirname(paths.backups)) {
+    throw badRequest('Choose a location outside the Obelisk data folder (another disk or a NAS mount)');
+  }
+  if (!fs.existsSync(resolved)) throw badRequest('That folder does not exist. Mount your NAS or disk there first.');
+  const probe = path.join(resolved, `.obelisk-write-test-${Date.now()}`);
+  try {
+    await fs.promises.writeFile(probe, 'ok');
+    await fs.promises.rm(probe, { force: true });
+  } catch (err) {
+    throw badRequest(`Obelisk cannot write there (${err.code || err.message}). Give the "arkpanel" user write access, and use a folder under /mnt, /media or /srv.`);
+  }
+  let free = null;
+  try { const s = fs.statfsSync(resolved); free = s.bavail * s.bsize; } catch { /* unknown */ }
+  return { ok: true, free };
 }
 
 function applyRetention(kind, id) {

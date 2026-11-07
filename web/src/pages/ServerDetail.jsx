@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   ArrowLeft, LayoutGrid, Terminal, Users, SlidersHorizontal, Gauge, FileCode2, Puzzle, FolderOpen, Archive, CalendarClock,
-  MoreVertical, ArrowUpCircle, ShieldCheck, Skull, Download,
+  MoreVertical, ArrowUpCircle, ShieldCheck, Skull, Download, Copy as CopyIcon, CopyPlus,
 } from 'lucide-react';
 import { get, post } from '../lib/api.js';
 import { usePoll } from '../lib/hooks.js';
@@ -14,6 +15,7 @@ import ConsoleView from '../components/ConsoleView.jsx';
 import FileManager from '../components/FileManager.jsx';
 import BackupsPanel from '../components/BackupsPanel.jsx';
 import SchedulesPanel from '../components/SchedulesPanel.jsx';
+import { CloneServerModal, CopySettingsModal } from '../components/ServerToolsModals.jsx';
 import Overview from './server/Overview.jsx';
 import Players from './server/Players.jsx';
 import StartupSettings from './server/StartupSettings.jsx';
@@ -34,7 +36,7 @@ const TABS = [
   { id: 'schedules', label: 'Schedules', icon: CalendarClock },
 ];
 
-function MoreMenu({ server, onDone }) {
+function MoreMenu({ server, onDone, onClone, onCopy }) {
   const [, run] = useAction();
   const confirm = useConfirm();
   const alive = ['running', 'starting'].includes(server.runtime.state) || server.runtime.processes > 0;
@@ -53,6 +55,8 @@ function MoreMenu({ server, onDone }) {
     },
     server.installed && !alive && { label: 'Validate game files', icon: ShieldCheck, onClick: () => after(run('validate', () => post(`/servers/${server.id}/install`, { validate: true }), 'Validation started')) },
     !server.installed && { label: 'Install game files', icon: Download, onClick: () => after(run('install', () => post(`/servers/${server.id}/install`), 'Installation started')) },
+    { label: 'Copy settings to other servers', icon: CopyIcon, onClick: onCopy },
+    { label: 'Clone server', icon: CopyPlus, onClick: onClone },
     alive && {
       label: 'Force kill', icon: Skull, danger: true, onClick: async () => {
         if (await confirm({ title: 'Force kill the server?', message: 'The process is killed immediately, without saving the world. Only use this when the server is stuck.', danger: true, confirmLabel: 'Kill' })) {
@@ -73,6 +77,7 @@ export default function ServerDetail() {
   const navigate = useNavigate();
   const { reload: reloadAll } = useServers();
   const { data: server, error, reload } = usePoll(() => get(`/servers/${id}`), 2000, [id]);
+  const [dialog, setDialog] = useState(null);
 
   if (error?.status === 404) {
     return <Alert type="error" title="Server not found">It may have been deleted. <Link className="underline" to="/servers">Back to servers</Link></Alert>;
@@ -107,7 +112,7 @@ export default function ServerDetail() {
         </div>
         <div className="flex items-center gap-2">
           <PowerButtons server={server} onDone={refresh} />
-          <MoreMenu server={server} onDone={refresh} />
+          <MoreMenu server={server} onDone={refresh} onClone={() => setDialog('clone')} onCopy={() => setDialog('copy')} />
         </div>
       </div>
 
@@ -137,6 +142,8 @@ export default function ServerDetail() {
         {tab === 'backups' && <BackupsPanel kind="servers" id={server.id} restoreHint="Stop the server first" />}
         {tab === 'schedules' && <SchedulesPanel targetType="server" targetId={server.id} />}
       </motion.div>
+      <CopySettingsModal open={dialog === 'copy'} onClose={() => setDialog(null)} server={server} defaultParts={['game', 'mods']} />
+      <CloneServerModal open={dialog === 'clone'} onClose={() => setDialog(null)} server={server} />
     </>
   );
 }

@@ -13,12 +13,13 @@ Think Pelican / Pterodactyl, but built for one job only: no eggs, no Docker, no 
 - **Players** – see who is online, kick, ban, unban, broadcast messages.
 - **Game settings form** – rates, breeding, structures, PvE/PvP… written to the INI files on every start so ARK can't overwrite them.
 - **Config editor** – edit `GameUserSettings.ini` and `Game.ini` directly in the browser.
-- **Mods** – CurseForge IDs (ASA) or Workshop IDs (ASE), with load order.
+- **Mods** – CurseForge IDs (ASA) or Workshop IDs (ASE), drag-and-drop load order, and mod maps via a map mod ID.
+- **Clone and copy** – clone a server (settings, config, mods, schedules) or copy settings to other servers or the whole cluster in one click.
 - **File manager** – browse, edit, upload (drag & drop, folders), download, rename, delete, zip / unzip.
-- **Backups** – manual and scheduled `.tar.gz` backups of the save data, one-click restore (with automatic safety backup), retention.
+- **Backups** – manual and scheduled `.tar.gz` backups of the save data, an automatic backup before every game update, one-click restore (with automatic safety backup), retention and an optional offsite copy to a NAS or second disk.
 - **Schedules** – daily restarts with in-game countdown, backups, update checks, broadcasts, RCON commands; per server or per cluster.
 - **Auto-update** – detects new Steam builds, warns players, updates and restarts.
-- **Crash recovery** – restarts crashed servers (with crash-loop protection) and auto-starts servers on boot.
+- **Crash recovery** – restarts crashed servers (with crash-loop protection), auto-starts servers on boot, optional memory limit per server (restart with warning) and out-of-memory protection for the host.
 - **Survives panel restarts** – game servers keep running while the panel restarts or updates.
 - **Multiple users**, login rate-limiting, CSRF protection.
 
@@ -86,6 +87,27 @@ Other variables: `ARKPANEL_PORT`, `ARKPANEL_DATA_DIR`, `ARKPANEL_ADMIN_USER`, `A
 3. Start them. The panel sets `-clusterid`, `-ClusterDirOverride` (a shared folder per cluster) and `-NoTransferFromFiltering` for you.
 
 Each server in the cluster needs its own game port forwarded.
+
+## Offsite backups (NAS or second disk)
+
+Obelisk can copy every backup to a second location (Settings → Backups → Offsite copy). Mount the location under `/mnt`, `/media` or `/srv` first and make it writable for the `arkpanel` user.
+
+**NAS via SMB (Windows share, Synology, TrueNAS, Unraid):**
+
+```bash
+sudo apt install cifs-utils
+sudo mkdir -p /mnt/nas
+printf 'username=NASUSER\npassword=NASPASSWORD\n' | sudo tee /etc/arkpanel/nas.cred >/dev/null
+sudo chmod 600 /etc/arkpanel/nas.cred
+echo '//NAS-IP/share/ark /mnt/nas cifs credentials=/etc/arkpanel/nas.cred,uid=arkpanel,gid=arkpanel,file_mode=0640,dir_mode=0750,_netdev,nofail 0 0' | sudo tee -a /etc/fstab
+sudo mount -a
+```
+
+**NAS via NFS:** add `NAS-IP:/volume1/ark /mnt/nas nfs defaults,_netdev,nofail 0 0` to `/etc/fstab` (after `sudo apt install nfs-common`), run `sudo mount -a` and make sure the export is writable for the `arkpanel` user.
+
+**Second disk in Proxmox:** add a disk to the VM, format and mount it (e.g. on `/mnt/backup`), then run `sudo chown arkpanel:arkpanel /mnt/backup`.
+
+Then enter the folder in the panel, click **Test**, turn it on and click **Copy existing backups now**. Tip: Proxmox Backup Server snapshots of the whole VM are a good extra layer.
 
 ## Commands
 

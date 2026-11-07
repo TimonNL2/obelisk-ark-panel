@@ -213,6 +213,8 @@ case "$DATA_DIR" in /home/*|/root/*) PROTECT_HOME="# ProtectHome off: data folde
 HARDENING="NoNewPrivileges=yes
 ProtectSystem=strict
 ReadWritePaths=$APP_DIR $DATA_DIR /tmp
+# offsite backup locations (NAS / extra disk mounts); "-" = ignore if missing
+ReadWritePaths=-/mnt -/media -/srv
 $PROTECT_HOME
 ProtectKernelTunables=yes
 ProtectKernelModules=yes

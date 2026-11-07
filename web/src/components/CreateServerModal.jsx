@@ -33,6 +33,7 @@ export default function CreateServerModal({ open, onClose, defaults = {} }) {
       adminPassword: '',
       clusterId: defaults.clusterId || '',
       install: true,
+      mapModId: '',
       ports: null,
     });
     setError(null);
@@ -97,12 +98,18 @@ export default function CreateServerModal({ open, onClose, defaults = {} }) {
             <Input autoFocus required maxLength={64} value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="My Island Server" />
           </Field>
           <Field label="Map">
-            <Select value={form.map} onChange={(e) => set({ map: e.target.value })}>
+            <Select value={form.map} onChange={(e) => set({ map: e.target.value, mapModId: '' })}>
               {game.maps.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               <option value={CUSTOM}>Custom / mod map...</option>
             </Select>
             {form.map === CUSTOM && <Input className="mt-2" required value={customMap} onChange={(e) => setCustomMap(e.target.value)} placeholder="e.g. Svartalfheim_WP" />}
           </Field>
+          {(form.map === CUSTOM || game.maps.find((m) => m.id === form.map)?.modHint) && (
+            <Field label="Map mod ID (optional)" hint={game.maps.find((m) => m.id === form.map)?.note || 'For a mod map: its CurseForge (ASA) or Workshop (ASE) ID. Loaded before your other mods.'}>
+              <Input inputMode="numeric" value={form.mapModId || ''} onChange={(e) => set({ mapModId: e.target.value.replace(/\D/g, '') })}
+                placeholder={game.maps.find((m) => m.id === form.map)?.modHint || 'none'} />
+            </Field>
+          )}
           <Field label="Cluster" hint={gameClusters.length ? 'Servers in the same cluster can transfer characters, dinos and items.' : 'No clusters for this game yet. Create one on the Clusters page.'}>
             <Select value={form.clusterId} onChange={(e) => set({ clusterId: e.target.value })}>
               <option value="">No cluster (standalone)</option>

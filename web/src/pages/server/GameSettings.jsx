@@ -1,8 +1,9 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { RotateCcw, Search, Sparkles, X } from 'lucide-react';
+import { Copy, RotateCcw, Search, Sparkles, X } from 'lucide-react';
 import { get, put } from '../../lib/api.js';
 import { Alert, Button, Card, Input, Loading, Menu, SaveBar, cx, spring, useConfirm, useToast } from '../../components/ui.jsx';
+import { CopySettingsModal } from '../../components/ServerToolsModals.jsx';
 
 const keyOf = (d) => `${d.file}|${d.section}|${d.key}`;
 const STATS_CAT = 'Stats per level';
@@ -110,6 +111,7 @@ export default function GameSettings({ server }) {
   const [search, setSearch] = useState('');
   const [active, setActive] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   const toast = useToast();
   const confirm = useConfirm();
   const sections = useRef({});
@@ -249,6 +251,7 @@ export default function GameSettings({ server }) {
         <Menu align="right" width="w-72"
           trigger={({ toggle }) => <Button icon={Sparkles} onClick={toggle}>Presets</Button>}
           items={data.presets.map((p) => ({ label: p.label, onClick: () => applyPreset(p) }))} />
+        <Button icon={Copy} onClick={() => setCopyOpen(true)} title="Copy these game settings to other servers or the whole cluster">Copy to servers</Button>
         {totalCustom > 0 && (
           <Button variant="ghost" icon={RotateCcw} onClick={async () => {
             if (await confirm({ title: 'Reset every setting to the game default?', message: 'This clears all values on this page. Nothing is saved until you click save.', danger: true, confirmLabel: 'Clear all' })) setValues({});
@@ -312,6 +315,7 @@ export default function GameSettings({ server }) {
       </div>
 
       <SaveBar show={changes > 0} count={changes} saving={saving} onSave={save} onDiscard={() => setValues(initial)} label="Save game settings" />
+      <CopySettingsModal open={copyOpen} onClose={() => setCopyOpen(false)} server={server} defaultParts={['game']} dirtyWarning={changes > 0} />
     </div>
   );
 }

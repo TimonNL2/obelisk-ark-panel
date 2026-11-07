@@ -67,6 +67,19 @@ serversRouter.post('/servers/:id/kill', ah(async (req, res) => {
   await sm.killServer(req.params.id);
   res.json({ ok: true });
 }));
+serversRouter.post('/servers/:id/copy-settings', (req, res) => {
+  load(req);
+  const targets = Array.isArray(req.body?.targets) ? req.body.targets.map(String) : [];
+  if (!targets.length) throw badRequest('Choose at least one server');
+  res.json({ results: sm.copySettings(req.params.id, targets, req.body?.parts) });
+});
+
+serversRouter.post('/servers/:id/clone', (req, res) => {
+  load(req);
+  const { server } = sm.cloneServer(req.params.id, req.body || {});
+  res.status(201).json(sm.publicServer(server));
+});
+
 serversRouter.post('/servers/:id/install', (req, res) => {
   sm.installServer(req.params.id, { validate: !!req.body?.validate });
   res.status(202).json({ ok: true });

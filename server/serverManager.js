@@ -9,6 +9,7 @@ import { hub } from './consoleHub.js';
 import { rconCommand, parsePlayers } from './rcon.js';
 import { scanTaggedProcesses, processUsage, cpuPercent, killPids } from './util/procs.js';
 import { setIniValues } from './util/ini.js';
+import { removedKeys } from './gameSettings.js';
 import { runCommand } from './util/exec.js';
 import { badRequest, conflict, notFound, sleep } from './util/errors.js';
 import { ensureSteamcmd, ensureProton, steamAppUpdate, installedBuildId, latestBuildId, protonDir, RECOMMENDED_PROTON } from './tools.js';
@@ -176,8 +177,19 @@ function applyEditableFields(server, input, { creating = false } = {}) {
     } else server.clusterId = null;
   }
   if (input.mods !== undefined) server.mods = cleanMods(input.mods);
-  for (const key of ['battleye', 'crossplay', 'autoStart', 'autoRestart', 'autoUpdate', 'virtualDisplay']) {
+  for (const key of ['battleye', 'crossplay', 'autoStart', 'autoRestart', 'autoUpdate', 'virtualDisplay', 'backupBeforeUpdate']) {
     if (input[key] !== undefined) server[key] = !!input[key];
+  }
+  if (input.mapModId !== undefined) {
+    const id = str(input.mapModId, 20);
+    if (id && !/^\d+$/.test(id)) throw badRequest('Map mod ID must be a number');
+    server.mapModId = id;
+  }
+  if (input.memoryLimitGB !== undefined) {
+    const gb = Number(input.memoryLimitGB) || 0;
+    if (gb < 0 || gb > 1024) throw badRequest('Memory limit must be between 0 (off) and 1024 GB');
+    if (gb > 0 && gb < 4) throw badRequest('A memory limit below 4 GB is too low for an ARK server (use 0 to turn it off)');
+    server.memoryLimitGB = Math.round(gb * 10) / 10;
   }
   if (input.extraArgs !== undefined) server.extraArgs = str(input.extraArgs, 1000);
   if (input.extraUrlParams !== undefined) server.extraUrlParams = str(input.extraUrlParams, 1000);
@@ -202,6 +214,9 @@ export function createServer(input) {
     autoStart: false,
     autoRestart: true,
     autoUpdate: false,
+    backupBeforeUpdate: true,
+    memoryLimitGB: 0,
+    mapModId: '',
     motd: '',
     motdDuration: 30,
     iniOverrides: {},
@@ -221,6 +236,93 @@ export function createServer(input) {
   log(server.id, `Server "${server.name}" created (${game.name}, map ${server.map}).`);
   if (input.install !== false) installServer(server.id).catch(() => {});
   return server;
+}
+
+/* ------------------------------------------------------------------ */
+/* Copy settings / clone                                                */
+/* ------------------------------------------------------------------ */
+
+export const COPY_PARTS = {
+  game: 'Game settings (rates, breeding, structures, stats...)',
+  mods: 'Mods and load order',
+  rules: 'Max players, server password, crossplay, BattlEye',
+  motd: 'Message of the day',
+  behaviour: 'Auto start / restart / update, backups, memory limit',
+};
+
+/** Copy chosen groups of settings from one server to others of the same game. */
+export function copySettings(sourceId, targetIds, parts) {
+  const src = getServer(sourceId);
+  if (!src) throw notFound('Server not found');
+  const chosen = (parts || []).filter((p) => COPY_PARTS[p]);
+  if (!chosen.length) throw badRequest('Choose what to copy');
+  const results = [];
+  for (const id of targetIds || []) {
+    const t = getServer(id);
+    if (!t || t.id === src.id) continue;
+    if (t.game !== src.game) { results.push({ id, ok: false, error: 'different game' }); continue; }
+    if (chosen.includes('game')) {
+      const removed = removedKeys(t.iniOverrides, src.iniOverrides);
+      const pending = t.pendingIniRemovals || [];
+      for (const r of removed) if (!pending.some((p) => p.join('|') === r.join('|'))) pending.push(r);
+      t.pendingIniRemovals = pending;
+      t.iniOverrides = structuredClone(src.iniOverrides || {});
+    }
+    if (chosen.includes('mods')) t.mods = structuredClone(src.mods || []);
+    if (chosen.includes('rules')) Object.assign(t, { maxPlayers: src.maxPlayers, serverPassword: src.serverPassword, crossplay: src.crossplay, battleye: src.battleye });
+    if (chosen.includes('motd')) Object.assign(t, { motd: src.motd, motdDuration: src.motdDuration });
+    if (chosen.includes('behaviour')) {
+      for (const k of ['autoStart', 'autoRestart', 'autoUpdate', 'backupBeforeUpdate', 'memoryLimitGB']) t[k] = src[k];
+    }
+    const running = isAlive(t.id);
+    if (!running && chosen.includes('game')) { try { applyManagedIni(t); } catch { /* applied on next start */ } }
+    log(t.id, `Settings copied from "${src.name}" (${chosen.join(', ')})${running ? ', applied on next restart' : ''}.`);
+    results.push({ id, ok: true, name: t.name, running });
+  }
+  db.save();
+  return results;
+}
+
+/** Create a new server with the configuration (and config files) of an existing one. */
+export function cloneServer(sourceId, input = {}) {
+  const src = getServer(sourceId);
+  if (!src) throw notFound('Server not found');
+  const map = input.map || src.map;
+  const keep = ['maxPlayers', 'serverPassword', 'adminPassword', 'battleye', 'crossplay', 'extraArgs', 'extraUrlParams',
+    'autoStart', 'autoRestart', 'autoUpdate', 'backupBeforeUpdate', 'memoryLimitGB', 'virtualDisplay', 'motd', 'motdDuration'];
+  const base = Object.fromEntries(keep.map((k) => [k, src[k]]));
+  const server = createServer({
+    ...base,
+    game: src.game,
+    name: input.name,
+    sessionName: input.name,
+    map,
+    mapModId: input.mapModId !== undefined ? input.mapModId : (map === src.map ? src.mapModId || '' : ''),
+    clusterId: input.clusterId !== undefined ? input.clusterId : src.clusterId,
+    mods: structuredClone(src.mods || []),
+    install: false,
+  });
+  server.iniOverrides = structuredClone(src.iniOverrides || {});
+  // copy the raw INI files too (custom lines the form doesn't cover); panel-managed keys are rewritten at start
+  for (const file of ['GameUserSettings.ini', 'Game.ini']) {
+    const from = configPath(serverDir(src.id), src, file);
+    const to = configPath(serverDir(server.id), server, file);
+    try {
+      if (fs.existsSync(from)) {
+        fs.mkdirSync(path.dirname(to), { recursive: true });
+        fs.copyFileSync(from, to);
+      }
+    } catch { /* optional */ }
+  }
+  if (input.copySchedules) {
+    for (const s of db.data.schedules.filter((x) => x.targetType === 'server' && x.targetId === src.id)) {
+      db.data.schedules.push({ ...structuredClone(s), id: newId(), targetId: server.id, lastRun: null, lastResult: null, createdAt: new Date().toISOString() });
+    }
+  }
+  db.save();
+  log(server.id, `Cloned from "${src.name}".`);
+  if (input.install !== false && config.isLinux) installServer(server.id).catch(() => {});
+  return { server, schedulesCopied: !!input.copySchedules };
 }
 
 export function updateServer(id, input) {
@@ -639,6 +741,18 @@ export function updateGame(id, { warnMinutes = 0, validate = false } = {}) {
   r.job = { type: 'update', label: wasRunning ? 'Stopping server' : 'Preparing', progress: null };
   return (async () => {
     if (wasRunning) await doStop(server, { warnMinutes, verb: 'updating' });
+    // Safety net: a game update can break saves, so keep a restore point first.
+    // The world was just saved by the stop, so this backup is complete.
+    if (server.backupBeforeUpdate !== false) {
+      r.job.label = 'Backing up before update';
+      try {
+        const { createBackup } = await import('./backups.js');
+        await createBackup('server', id, 'pre-update');
+      } catch (err) {
+        log(id, `No backup before update: ${err.message}`);
+      }
+    }
+    r.job.label = 'Preparing update';
     await doInstall(server, { validate });
     r.job = null;
     if (wasRunning) await doStart(server);
@@ -728,6 +842,34 @@ async function pollRcon(server) {
   }
 }
 
+/**
+ * If the machine runs out of memory, the kernel must pick a game server to kill, not the
+ * panel, SSH or the OS. Raising oom_score_adj of our own processes needs no privileges.
+ */
+function protectHostFromOom(r, pids) {
+  if (!config.isLinux) return;
+  r.oomDone ||= new Set();
+  for (const pid of pids) {
+    if (r.oomDone.has(pid)) continue;
+    try { fs.writeFileSync(`/proc/${pid}/oom_score_adj`, '500'); } catch { /* process gone */ }
+    r.oomDone.add(pid);
+  }
+  if (r.oomDone.size > pids.length * 4 + 50) r.oomDone = new Set(pids);
+}
+
+/** ASA slowly leaks memory: restart (with a warning) once a server passes its memory limit. */
+function enforceMemoryLimit(server, r, now) {
+  const limitGb = Number(server.memoryLimitGB) || 0;
+  if (!limitGb || r.state !== 'running' || r.job || r.countdown) return;
+  if (r.memory < limitGb * 1024 ** 3) return;
+  if (now - (r.memoryRestartAt || 0) < 30 * 60000) return; // at most once per 30 minutes
+  r.memoryRestartAt = now;
+  const used = (r.memory / 1024 ** 3).toFixed(1);
+  const warn = r.players.length ? 5 : 0;
+  log(server.id, `Memory use ${used} GB is above the limit of ${limitGb} GB: restarting${warn ? ' with a 5 minute warning' : ''}.`);
+  try { restartServer(server.id, { warnMinutes: warn }); } catch (err) { log(server.id, `Memory restart skipped: ${err.message}`); }
+}
+
 let ticking = false;
 async function tick() {
   if (ticking) return;
@@ -748,6 +890,8 @@ async function tick() {
           r.startedAt ||= now;
         }
         if (r.state === 'starting' || r.state === 'running') pollRcon(server);
+        protectHostFromOom(r, pids);
+        enforceMemoryLimit(server, r, now);
       } else {
         r.cpu = 0;
         r.memory = 0;

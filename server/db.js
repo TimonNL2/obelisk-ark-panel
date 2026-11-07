@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS = {
   baseQueryPort: 27015,
   baseRconPort: 27020,
   stopTimeoutSeconds: 120,
+  offsite: { enabled: false, path: '', keep: 30 },
 };
 
 function defaults() {

@@ -12,6 +12,7 @@ import { ACTIONS, listSchedules, createSchedule, updateSchedule, deleteSchedule,
 import { publicIp, localIps } from '../network.js';
 import * as tools from '../tools.js';
 import * as sm from '../serverManager.js';
+import { offsiteRoot, syncOffsite, testOffsitePath } from '../backups.js';
 
 export const systemRouter = Router();
 
@@ -47,6 +48,7 @@ systemRouter.get('/meta', (req, res) => {
   res.json({
     games: Object.values(GAMES).map((g) => ({ id: g.id, name: g.name, short: g.short, maps: g.maps, defaultMaxPlayers: g.defaultMaxPlayers, usesQueryPort: g.usesQueryPort })),
     scheduleActions: ACTIONS,
+    copyParts: sm.COPY_PARTS,
     gameSettings: GAME_SETTINGS,
   });
 });
@@ -159,6 +161,38 @@ systemRouter.put('/settings', (req, res) => {
   num('stopTimeoutSeconds', 15, 900);
   db.save();
   res.json(s);
+});
+
+/* ------------------------------ offsite backups ------------------------------ */
+
+systemRouter.put('/settings/offsite', ah(async (req, res) => {
+  const b = req.body || {};
+  const next = { ...db.data.settings.offsite };
+  if (b.keep !== undefined) {
+    const keep = Number(b.keep);
+    if (!Number.isInteger(keep) || keep < 1 || keep > 1000) throw badRequest('Keep must be between 1 and 1000');
+    next.keep = keep;
+  }
+  if (b.path !== undefined) next.path = String(b.path).trim();
+  if (b.enabled !== undefined) next.enabled = !!b.enabled;
+  if (next.enabled) await testOffsitePath(next.path);
+  db.data.settings.offsite = next;
+  db.save();
+  res.json({ offsite: next, status: db.data.offsiteStatus || null });
+}));
+
+systemRouter.post('/settings/offsite/test', ah(async (req, res) => {
+  res.json(await testOffsitePath(req.body?.path));
+}));
+
+systemRouter.get('/settings/offsite', (req, res) => {
+  res.json({ offsite: db.data.settings.offsite, status: db.data.offsiteStatus || null, job: jobs.offsite || null });
+});
+
+systemRouter.post('/settings/offsite/sync', (req, res) => {
+  if (!offsiteRoot()) throw badRequest('Turn on offsite copies first');
+  startJob('offsite', (log) => syncOffsite(log));
+  res.status(202).json({ ok: true });
 });
 
 /* ------------------------------ schedules ------------------------------ */

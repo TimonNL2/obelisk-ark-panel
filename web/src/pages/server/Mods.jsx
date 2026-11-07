@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, Reorder, useDragControls } from 'motion/react';
-import { ExternalLink, GripVertical, Plus, Puzzle, Trash2 } from 'lucide-react';
+import { ExternalLink, GripVertical, Map as MapIcon, Plus, Puzzle, Trash2 } from 'lucide-react';
 import { put } from '../../lib/api.js';
 import { Alert, Button, Card, CardHeader, EmptyState, Field, Input, SaveBar, Switch, cx, spring, useToast } from '../../components/ui.jsx';
 
@@ -89,7 +89,17 @@ export default function Mods({ server, onSaved }) {
 
       <div>
         <h3 className="mb-3 flex items-center gap-2 text-[17px] font-semibold"><Puzzle className="size-4 text-ink-400" />Load order <span className="text-sm font-normal text-ink-400">{mods.filter((m) => m.enabled !== false).length} active</span></h3>
-        {mods.length === 0 ? <Card><EmptyState icon={Puzzle} title="No mods">This server runs the unmodded game.</EmptyState></Card> : (
+        {server.mapModId && (
+          <div className="mb-2 flex items-center gap-3 rounded-xl border border-dashed border-ink-600 px-3 py-2.5">
+            <MapIcon className="size-4 text-brand-300" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-ink-100">Map mod for {server.mapName}</div>
+              <a href={link(server.mapModId)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-ink-400 hover:text-brand-300">{server.mapModId}<ExternalLink className="size-3" /></a>
+            </div>
+            <span className="text-xs text-ink-400">Always loaded first. Change it in Server settings.</span>
+          </div>
+        )}
+        {mods.length === 0 ? <Card><EmptyState icon={Puzzle} title="No mods">{server.mapModId ? 'No mods besides the map mod.' : 'This server runs the unmodded game.'}</EmptyState></Card> : (
           <Reorder.Group axis="y" values={mods} onReorder={setMods} className="space-y-2">
             <AnimatePresence initial={false}>
               {mods.map((m, i) => (
