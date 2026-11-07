@@ -49,12 +49,12 @@ export default function Servers() {
                       <td className="px-4 py-3">
                         <Link to={`/servers/${s.id}`} className="group block min-w-0">
                           <div className="flex items-center gap-2"><GameBadge game={s.game} /><span className="truncate font-medium group-hover:text-brand-300">{s.name}</span></div>
-                          <div className="mt-0.5 truncate text-xs text-ink-400">{s.mapName}{s.cluster ? ` · ${s.cluster.name}` : ''}</div>
+                          <div className="mt-0.5 truncate text-xs text-ink-400">{s.mapName}{s.cluster ? `, ${s.cluster.name}` : ''}</div>
                         </Link>
                       </td>
                       <td className="px-4 py-3">{s.runtime.job ? <div className="w-40"><JobProgress job={s.runtime.job} /></div> : <StatusBadge server={s} />}</td>
                       <td className="num hidden px-4 py-3 md:table-cell">{alive ? `${s.runtime.playerCount}/${s.maxPlayers}` : '—'}</td>
-                      <td className="num hidden px-4 py-3 text-ink-200 lg:table-cell">{alive ? `${pct(s.runtime.cpu)} · ${bytes(s.runtime.memory)}` : '—'}</td>
+                      <td className="num hidden px-4 py-3 text-ink-200 lg:table-cell">{alive ? `${pct(s.runtime.cpu)}, ${bytes(s.runtime.memory)}` : '—'}</td>
                       <td className="num hidden px-4 py-3 text-ink-300 md:table-cell">{s.ports.game}</td>
                       <td className="px-4 py-3"><div className="flex justify-end"><PowerButtons server={s} size="sm" showLabels={false} /></div></td>
                     </tr>

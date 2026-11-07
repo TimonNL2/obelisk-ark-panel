@@ -42,7 +42,7 @@ export default function Overview({ server }) {
         <Card className="p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="text-sm font-medium text-sky-200">{{ install: 'Installing game files', update: 'Updating server', validate: 'Validating game files' }[r.job.type] || 'Working'}</div>
-            <Link to={`/servers/${server.id}/console`} className="text-xs text-ink-300 hover:text-ink-100">Open console →</Link>
+            <Link to={`/servers/${server.id}/console`} className="text-xs text-ink-300 hover:text-ink-100">Open console</Link>
           </div>
           <JobProgress job={r.job} />
         </Card>
@@ -75,13 +75,13 @@ export default function Overview({ server }) {
             <Row label="RCON port"><span className="num font-mono">{server.ports.rcon} TCP</span></Row>
             <Row label="Cluster">{server.cluster ? <Link className="text-brand-300 hover:underline" to={`/clusters/${server.cluster.id}`}>{server.cluster.name}</Link> : 'None'}</Row>
             <Row label="Mods">{(server.mods || []).filter((m) => m.enabled !== false).length || 'None'}</Row>
-            <Row label="Build">{server.buildId || '—'}{server.updateAvailable && <span className="ml-2 text-ember-400">→ {server.latestBuildId}</span>}</Row>
+            <Row label="Build">{server.buildId || '—'}{server.updateAvailable && <span className="ml-2 text-ember-400">(new: {server.latestBuildId})</span>}</Row>
           </div>
         </Card>
         <div className="lg:col-span-3">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm font-semibold"><Terminal className="size-4 text-ink-300" />Live console</div>
-            <Link to={`/servers/${server.id}/console`} className="text-xs text-ink-300 hover:text-ink-100">Full console →</Link>
+            <Link to={`/servers/${server.id}/console`} className="text-xs text-ink-300 hover:text-ink-100">Open full console</Link>
           </div>
           <ConsoleView server={server} height="h-[340px]" compact />
         </div>

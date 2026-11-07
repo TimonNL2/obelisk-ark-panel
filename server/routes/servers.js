@@ -6,7 +6,7 @@ import { serverDir } from '../config.js';
 import { ah, badRequest, notFound } from '../util/errors.js';
 import { configPath } from '../games.js';
 import { parseIni, getIniValue } from '../util/ini.js';
-import { GAME_SETTINGS, INI_FILES, normaliseOverrides, removedKeys } from '../gameSettings.js';
+import { GAME_SETTINGS, INI_FILES, PRESETS, STATS, STAT_GROUPS, normaliseOverrides, removedKeys } from '../gameSettings.js';
 import { parsePlayers } from '../rcon.js';
 import { hub } from '../consoleHub.js';
 import * as sm from '../serverManager.js';
@@ -163,7 +163,13 @@ serversRouter.get('/servers/:id/game-settings', (req, res) => {
       }
     }
   }
-  res.json({ catalog: GAME_SETTINGS, overrides: server.iniOverrides || {}, current });
+  res.json({
+    catalog: GAME_SETTINGS.filter((d) => !d.games || d.games.includes(server.game)),
+    overrides: server.iniOverrides || {},
+    current,
+    presets: PRESETS,
+    stats: { names: STATS, groups: STAT_GROUPS },
+  });
 });
 
 serversRouter.put('/servers/:id/game-settings', (req, res) => {

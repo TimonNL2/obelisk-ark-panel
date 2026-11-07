@@ -48,7 +48,7 @@ function ScheduleModal({ open, onClose, initial, targetType, targetId, onSaved }
     setError(null);
   }, [open, initial]);
 
-  if (!open || !form) return null;
+  if (!form) return null;
   const set = (p) => setForm((f) => ({ ...f, ...p }));
   const setT = (p) => setTiming((t) => ({ ...t, ...p }));
   const cron = toCron(timing);
@@ -119,7 +119,7 @@ function ScheduleModal({ open, onClose, initial, targetType, targetId, onSaved }
               </Field>
             )}
           </div>
-          <p className="mt-3 text-xs text-ink-300">Runs: <span className="text-ink-100">{describeCron(cron)}</span> <span className="font-mono text-ink-400">({cron})</span> · server time</p>
+          <p className="mt-3 text-xs text-ink-300">Runs: <span className="text-ink-100">{describeCron(cron)}</span> <span className="font-mono text-ink-400">({cron})</span>, server time</p>
         </div>
 
         {WARN_ACTIONS.includes(form.action) && (
@@ -173,9 +173,9 @@ export default function SchedulesPanel({ targetType, targetId, subtitle }) {
                   {!s.enabled && <Badge color="yellow">Paused</Badge>}
                 </div>
                 <div className="mt-0.5 text-xs text-ink-400">
-                  {describeCron(s.cron)}{s.warnMinutes ? ` · ${s.warnMinutes} min warning` : ''}
-                  {s.enabled && s.nextRun && <> · next {dateTime(s.nextRun)}</>}
-                  {s.lastRun && <> · last {timeAgo(s.lastRun)}{s.lastResult ? ` (${s.lastResult})` : ''}</>}
+                  {describeCron(s.cron)}{s.warnMinutes ? `, ${s.warnMinutes} min warning` : ''}
+                  {s.enabled && s.nextRun && <>. Next {dateTime(s.nextRun)}</>}
+                  {s.lastRun && <>. Last {timeAgo(s.lastRun)}{s.lastResult ? ` (${s.lastResult})` : ''}</>}
                 </div>
               </div>
               <div className="flex items-center gap-1">

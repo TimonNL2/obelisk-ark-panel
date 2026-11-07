@@ -45,7 +45,7 @@ export default function CreateServerModal({ open, onClose, defaults = {} }) {
     get(`/servers/suggest-ports?game=${form.game}`).then((ports) => set({ ports })).catch(() => {});
   }, [open, form?.game]);
 
-  if (!open || !form) return null;
+  if (!form) return null;
 
   const changeGame = (g) => {
     const gm = meta.games.find((x) => x.id === g);
@@ -87,7 +87,7 @@ export default function CreateServerModal({ open, onClose, defaults = {} }) {
             <button key={g.id} type="button" onClick={() => changeGame(g.id)}
               className={cx('rounded-xl border p-4 text-left transition-colors', form.game === g.id ? 'border-brand-500 bg-brand-500/10' : 'border-ink-600 bg-ink-900 hover:border-ink-500')}>
               <div className="text-sm font-semibold">{g.name}</div>
-              <div className="mt-1 text-xs text-ink-300">{g.id === 'asa' ? 'Unreal Engine 5 · runs through GE-Proton' : 'Classic ARK · native Linux server'}</div>
+              <div className="mt-1 text-xs text-ink-300">{g.id === 'asa' ? 'Unreal Engine 5, runs through GE-Proton' : 'The classic game, native Linux server'}</div>
             </button>
           ))}
         </div>

@@ -1,14 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { motion } from 'motion/react';
 import {
   ArrowLeft, LayoutGrid, Terminal, Users, SlidersHorizontal, Gauge, FileCode2, Puzzle, FolderOpen, Archive, CalendarClock,
   MoreVertical, ArrowUpCircle, ShieldCheck, Skull, Download,
 } from 'lucide-react';
 import { get, post } from '../lib/api.js';
 import { usePoll } from '../lib/hooks.js';
-import { Alert, Badge, CopyButton, GameBadge, Loading, StatusBadge, Tabs, cx, useAction, useConfirm } from '../components/ui.jsx';
+import { Alert, Badge, CopyButton, GameBadge, Loading, Menu, StatusBadge, Tabs, easeOut, stateInfo, useAction, useConfirm } from '../components/ui.jsx';
 import { PowerButtons } from '../components/ServerBits.jsx';
 import { useServers } from '../components/Layout.jsx';
+import Obelisk from '../components/Obelisk.jsx';
 import ConsoleView from '../components/ConsoleView.jsx';
 import FileManager from '../components/FileManager.jsx';
 import BackupsPanel from '../components/BackupsPanel.jsx';
@@ -34,51 +35,36 @@ const TABS = [
 ];
 
 function MoreMenu({ server, onDone }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
   const [, run] = useAction();
   const confirm = useConfirm();
-  useEffect(() => {
-    if (!open) return undefined;
-    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
-    window.addEventListener('mousedown', close);
-    return () => window.removeEventListener('mousedown', close);
-  }, [open]);
   const alive = ['running', 'starting'].includes(server.runtime.state) || server.runtime.processes > 0;
+  const after = (p) => p.then(onDone);
   const items = [
     server.installed && {
-      label: 'Update game', icon: ArrowUpCircle, fn: async () => {
+      label: 'Update game', icon: ArrowUpCircle, onClick: async () => {
         let warnMinutes = 0;
         if (alive) {
-          const res = await confirm({ title: 'Update the server?', message: 'The server is stopped, updated through SteamCMD and started again.', confirmLabel: 'Update with 5 min warning', checkbox: 'Update right now (no warning)' });
+          const res = await confirm({ title: 'Update the server?', message: 'The server stops, updates through SteamCMD and starts again.', confirmLabel: 'Update in 5 minutes', checkbox: 'Update right now, without a warning' });
           if (!res) return;
           warnMinutes = res.checked ? 0 : 5;
         }
-        run('update', () => post(`/servers/${server.id}/update`, { warnMinutes }), 'Update started');
+        after(run('update', () => post(`/servers/${server.id}/update`, { warnMinutes }), 'Update started'));
       },
     },
-    server.installed && !alive && { label: 'Validate game files', icon: ShieldCheck, fn: () => run('validate', () => post(`/servers/${server.id}/install`, { validate: true }), 'Validation started') },
-    !server.installed && { label: 'Install game files', icon: Download, fn: () => run('install', () => post(`/servers/${server.id}/install`), 'Installation started') },
+    server.installed && !alive && { label: 'Validate game files', icon: ShieldCheck, onClick: () => after(run('validate', () => post(`/servers/${server.id}/install`, { validate: true }), 'Validation started')) },
+    !server.installed && { label: 'Install game files', icon: Download, onClick: () => after(run('install', () => post(`/servers/${server.id}/install`), 'Installation started')) },
     alive && {
-      label: 'Force kill', icon: Skull, danger: true, fn: async () => {
-        if (await confirm({ title: 'Force kill the server?', message: 'The process is killed immediately WITHOUT saving the world. Use this only when the server is stuck.', danger: true, confirmLabel: 'Kill' })) run('kill', () => post(`/servers/${server.id}/kill`), 'Server killed');
+      label: 'Force kill', icon: Skull, danger: true, onClick: async () => {
+        if (await confirm({ title: 'Force kill the server?', message: 'The process is killed immediately, without saving the world. Only use this when the server is stuck.', danger: true, confirmLabel: 'Kill' })) {
+          after(run('kill', () => post(`/servers/${server.id}/kill`), 'Server killed'));
+        }
       },
     },
-  ].filter(Boolean);
+  ];
   return (
-    <div className="relative" ref={ref}>
-      <button type="button" aria-label="More actions" onClick={() => setOpen(!open)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-ink-600 bg-ink-700 text-ink-200 hover:bg-ink-600"><MoreVertical className="size-4" /></button>
-      {open && (
-        <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-lg border border-ink-600 bg-ink-800 py-1 shadow-xl shadow-black/40">
-          {items.map((it) => (
-            <button key={it.label} type="button" onClick={() => { setOpen(false); it.fn().then?.(onDone); }}
-              className={cx('flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-ink-700', it.danger ? 'text-red-300' : 'text-ink-100')}>
-              <it.icon className="size-4" />{it.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <Menu items={items} trigger={({ toggle }) => (
+      <button type="button" aria-label="More actions" onClick={toggle} className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-ink-600/80 bg-ink-700/80 text-ink-200 transition-colors hover:bg-ink-600"><MoreVertical className="size-4" /></button>
+    )} />
   );
 }
 
@@ -91,29 +77,32 @@ export default function ServerDetail() {
   if (error?.status === 404) {
     return <Alert type="error" title="Server not found">It may have been deleted. <Link className="underline" to="/servers">Back to servers</Link></Alert>;
   }
-  if (!server) return <Loading />;
+  if (!server) return <Loading rows={4} />;
 
   const refresh = () => { reload(); reloadAll(); };
   const r = server.runtime;
 
   return (
     <>
-      <Link to="/servers" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-300 hover:text-ink-100"><ArrowLeft className="size-4" />Servers</Link>
+      <Link to="/servers" className="mb-5 inline-flex items-center gap-1.5 text-sm text-ink-400 transition-colors hover:text-ink-100"><ArrowLeft className="size-4" />Servers</Link>
 
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">{server.name}</h1>
-            <GameBadge game={server.game} />
-            {server.cluster && <Link to={`/clusters/${server.cluster.id}`}><Badge color="blue">{server.cluster.name}</Badge></Link>}
-            {server.updateAvailable && <Badge color="yellow">Update available</Badge>}
-          </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-300">
-            <StatusBadge server={server} />
-            <span>{server.mapName}</span>
-            {server.connect && (
-              <span className="flex items-center gap-1">Connect: <span className="num font-mono text-ink-100">{server.connect}</span><CopyButton value={server.connect} /></span>
-            )}
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-5">
+        <div className="flex min-w-0 items-end gap-4">
+          <Obelisk info={stateInfo(server)} height={72} width={22} />
+          <div className="min-w-0 pb-0.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="truncate text-[30px] font-semibold leading-none">{server.name}</h1>
+              <GameBadge game={server.game} />
+              {server.cluster && <Link to={`/clusters/${server.cluster.id}`}><Badge color="blue">{server.cluster.name}</Badge></Link>}
+              {server.updateAvailable && <Badge color="yellow">Update available</Badge>}
+            </div>
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-ink-300">
+              <StatusBadge server={server} />
+              <span>{server.mapName}</span>
+              {server.connect && (
+                <span className="flex items-center gap-1">Connect <span className="num font-display font-semibold text-ink-100">{server.connect}</span><CopyButton value={server.connect} /></span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -123,17 +112,17 @@ export default function ServerDetail() {
       </div>
 
       {r.countdown && (
-        <Alert type="warning" className="mb-4" title={`Countdown running: server ${r.countdown.verb}`}>
-          Players are being warned. Finishes around {new Date(r.countdown.endsAt).toLocaleTimeString()}.
+        <Alert type="warning" className="mb-4" title={`Countdown running, the server is ${r.countdown.verb}`}>
+          Players are being warned. It finishes around {new Date(r.countdown.endsAt).toLocaleTimeString()}.
         </Alert>
       )}
       {r.lastError && !r.job && r.state !== 'running' && (
-        <Alert type="error" className="mb-4" title="Last action failed">{r.lastError}</Alert>
+        <Alert type="error" className="mb-4" title="The last action failed">{r.lastError}</Alert>
       )}
 
       <Tabs tabs={TABS} active={tab} onChange={(t) => navigate(`/servers/${id}/${t === 'overview' ? '' : t}`)} />
 
-      <div className="mt-5">
+      <motion.div key={tab} className="mt-6" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: easeOut }}>
         {tab === 'overview' && <Overview server={server} />}
         {tab === 'console' && <ConsoleView server={server} />}
         {tab === 'players' && <Players server={server} />}
@@ -143,11 +132,11 @@ export default function ServerDetail() {
         {tab === 'mods' && <Mods server={server} onSaved={refresh} />}
         {tab === 'files' && (
           <FileManager rootType="server" rootId={server.id}
-            warning={r.state === 'running' ? <Alert type="info">The server is running. Editing save files or configs while it runs can be overwritten by the game.</Alert> : null} />
+            warning={r.state === 'running' ? <Alert type="info">The server is running. The game can overwrite save files and configs you edit now.</Alert> : null} />
         )}
         {tab === 'backups' && <BackupsPanel kind="servers" id={server.id} restoreHint="Stop the server first" />}
         {tab === 'schedules' && <SchedulesPanel targetType="server" targetId={server.id} />}
-      </div>
+      </motion.div>
     </>
   );
 }

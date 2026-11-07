@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, RefreshCw, Trash2 } from 'lucide-react';
 import { del, put } from '../../lib/api.js';
 import { useApp } from '../../App.jsx';
 import { useServers } from '../../components/Layout.jsx';
-import { Alert, Button, Card, CardHeader, Field, Input, Select, Textarea, Toggle, useConfirm, useToast } from '../../components/ui.jsx';
+import { Alert, Button, Card, CardHeader, Field, Input, SaveBar, Select, Textarea, Toggle, useConfirm, useToast } from '../../components/ui.jsx';
 
 const CUSTOM = '__custom__';
 const randomPw = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 56]).join('');
@@ -152,10 +152,6 @@ export default function StartupSettings({ server, onSaved }) {
         </div>
       </Card>
 
-      <div className="sticky bottom-4 z-10 flex justify-end">
-        <Button type="submit" variant="primary" size="lg" icon={Save} disabled={!dirty} loading={saving} className="shadow-xl shadow-black/40">Save settings</Button>
-      </div>
-
       <Card className="border-red-500/30">
         <CardHeader title="Danger zone" />
         <div className="flex flex-wrap items-center justify-between gap-3 p-5">
@@ -163,6 +159,9 @@ export default function StartupSettings({ server, onSaved }) {
           <Button variant="danger" icon={Trash2} disabled={running} title={running ? 'Stop the server first' : undefined} onClick={remove}>Delete server</Button>
         </div>
       </Card>
+
+      <SaveBar show={dirty} saving={saving} onSave={save} onDiscard={() => setForm(pick(server))} label="Save settings"
+        count={Object.keys(form).filter((k) => JSON.stringify(form[k]) !== JSON.stringify(pick(server)[k])).length} />
     </form>
   );
 }

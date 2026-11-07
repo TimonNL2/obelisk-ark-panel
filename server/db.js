@@ -41,7 +41,10 @@ class Store {
     try {
       const parsed = JSON.parse(fs.readFileSync(this.file, 'utf8'));
       const base = defaults();
-      return { ...base, ...parsed, settings: { ...base.settings, ...(parsed.settings || {}) } };
+      const data = { ...base, ...parsed, settings: { ...base.settings, ...(parsed.settings || {}) } };
+      // the panel was renamed from "ARK Panel" to "Obelisk"
+      if (data.settings.panelName === 'ARK Panel') data.settings.panelName = 'Obelisk';
+      return data;
     } catch (err) {
       if (err.code !== 'ENOENT') {
         // Keep a copy of a corrupt file instead of silently overwriting it.

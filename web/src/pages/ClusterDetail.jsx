@@ -120,7 +120,7 @@ export default function ClusterDetail() {
         <div>
           <div className="flex items-center gap-2.5"><h1 className="text-2xl font-semibold tracking-tight">{cluster.name}</h1><GameBadge game={cluster.game} /></div>
           <p className="num mt-1 text-sm text-ink-300">
-            <span className="font-mono">{cluster.clusterKey}</span> · {cluster.servers.length} servers · {cluster.servers.filter((s) => s.runtime.state === 'running').length} online · {players} players · transfer data {bytes(cluster.dataSize)}
+            {cluster.servers.filter((s) => s.runtime.state === 'running').length} of {cluster.servers.length} servers online, {players} players. Cluster ID <span className="font-semibold text-ink-200">{cluster.clusterKey}</span>, transfer data {bytes(cluster.dataSize)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

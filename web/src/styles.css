@@ -1,27 +1,48 @@
+@import "@fontsource/chakra-petch/500.css";
+@import "@fontsource/chakra-petch/600.css";
+@import "@fontsource/chakra-petch/700.css";
+@import "@fontsource-variable/manrope";
+@import "@fontsource-variable/jetbrains-mono";
 @import "tailwindcss";
 
+/*
+  Obelisk design tokens
+  graphite (ink-*) neutral dark surfaces
+  tek (brand-*)   cyan of ARK's Tek tier, used for actions and focus
+  amber (ember-*) warnings, starting, countdowns
+  green / red     obelisk beam colors for online / crashed
+*/
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Chakra Petch", "Manrope Variable", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
 
-  --color-ink-950: #070b14;
-  --color-ink-900: #0b1220;
-  --color-ink-850: #0f1729;
-  --color-ink-800: #141d31;
-  --color-ink-700: #1d2840;
-  --color-ink-600: #2a3754;
-  --color-ink-500: #3d4b6b;
-  --color-ink-400: #64739a;
-  --color-ink-300: #94a1c2;
-  --color-ink-200: #c3cbe0;
-  --color-ink-100: #e6eaf4;
+  --color-ink-950: #0c0d0f;
+  --color-ink-900: #111215;
+  --color-ink-850: #15171a;
+  --color-ink-800: #1b1d21;
+  --color-ink-700: #25282d;
+  --color-ink-600: #31353b;
+  --color-ink-500: #464b53;
+  --color-ink-400: #757c87;
+  --color-ink-300: #a3aab4;
+  --color-ink-200: #ced3da;
+  --color-ink-100: #eceef1;
 
-  --color-brand-300: #5eead4;
-  --color-brand-400: #2dd4bf;
-  --color-brand-500: #14b8a6;
-  --color-brand-600: #0d9488;
-  --color-ember-400: #fbbf24;
-  --color-ember-500: #f59e0b;
+  --color-brand-300: #a3f1ee;
+  --color-brand-400: #6fe3e1;
+  --color-brand-500: #3ccfcf;
+  --color-brand-600: #22a8aa;
+  --color-ember-400: #f5c462;
+  --color-ember-500: #eba93a;
+
+  --color-beam-online: #8be07a;
+  --color-beam-starting: #f5c462;
+  --color-beam-crashed: #f06a5d;
+  --color-beam-busy: #7cc4ff;
+  --color-beam-off: #464b53;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 html, body, #root { height: 100%; }
@@ -29,39 +50,77 @@ body {
   background: var(--color-ink-950);
   color: var(--color-ink-100);
   font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-::selection { background: color-mix(in oklab, var(--color-brand-400) 35%, transparent); }
+h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: 0.01em; }
 
+::selection { background: color-mix(in oklab, var(--color-brand-400) 35%, transparent); }
 * { scrollbar-width: thin; scrollbar-color: var(--color-ink-600) transparent; }
+:focus-visible { outline: 2px solid color-mix(in oklab, var(--color-brand-400) 70%, transparent); outline-offset: 2px; }
 
 .num { font-variant-numeric: tabular-nums; }
 
+/* Surfaces: a faint top highlight instead of drop shadows */
+.surface {
+  background: var(--color-ink-850);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.035);
+}
+
 .input {
   width: 100%;
-  border-radius: 0.5rem;
+  border-radius: 0.625rem;
   border: 1px solid var(--color-ink-600);
   background: var(--color-ink-900);
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   color: var(--color-ink-100);
   outline: none;
-  transition: border-color .15s, box-shadow .15s;
+  transition: border-color .18s var(--ease-out-expo), box-shadow .18s var(--ease-out-expo), background-color .18s;
 }
-.input:focus { border-color: var(--color-brand-500); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-brand-500) 25%, transparent); }
+.input:hover:not(:disabled) { border-color: var(--color-ink-500); }
+.input:focus { border-color: var(--color-brand-500); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-brand-500) 22%, transparent); background: var(--color-ink-950); }
 .input::placeholder { color: var(--color-ink-400); }
-.input:disabled { opacity: .6; }
-select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a1c2' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .7rem center; padding-right: 2rem; }
+.input:disabled { opacity: .55; }
+select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a3aab4' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .7rem center; padding-right: 2rem; }
+input[type=number].input::-webkit-inner-spin-button { opacity: .35; }
 
 .console-line { white-space: pre-wrap; word-break: break-word; }
 
-@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-.pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+/* ---------- obelisk beams ---------- */
+@keyframes beam-breathe {
+  0%, 100% { opacity: .85; filter: brightness(1); }
+  50% { opacity: 1; filter: brightness(1.25); }
+}
+@keyframes beam-scan {
+  0% { transform: translateY(100%); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-100%); opacity: 0; }
+}
+@keyframes dot-ping {
+  0% { transform: scale(1); opacity: .6; }
+  80%, 100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+.beam-breathe { animation: beam-breathe 3.2s ease-in-out infinite; }
+.beam-scan { animation: beam-scan 1.8s var(--ease-out-expo) infinite; }
+.dot-ping::after {
+  content: ""; position: absolute; inset: 0; border-radius: 9999px; background: currentColor;
+  animation: dot-ping 1.8s cubic-bezier(0, 0, .2, 1) infinite;
+}
+.skeleton { position: relative; overflow: hidden; background: var(--color-ink-800); }
+.skeleton::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / .04), transparent);
+  animation: shimmer 1.4s infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .pulse-dot { animation: none; }
-  * { transition: none !important; }
+  .beam-breathe, .beam-scan, .dot-ping::after, .skeleton::after { animation: none !important; }
 }
 
 .cm-editor { height: 100%; font-size: 13px; }

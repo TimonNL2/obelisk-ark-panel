@@ -42,7 +42,7 @@ export default function BackupsPanel({ kind, id, description, canRestore = true,
       <CardHeader
         icon={Archive}
         title="Backups"
-        subtitle={description || (list ? `${list.length} backup(s) · ${bytes(total)}` : '')}
+        subtitle={description || (list ? `${list.length} backup(s), ${bytes(total)} in total` : '')}
         actions={<Button variant="primary" size="sm" icon={Plus} loading={busy === 'create' || data?.running} onClick={create}>Create backup</Button>}
       />
       {!list ? <Loading /> : list.length === 0 ? (
@@ -58,7 +58,7 @@ export default function BackupsPanel({ kind, id, description, canRestore = true,
                     <span className="text-sm font-medium">{dateTime(b.createdAt)}</span>
                     <Badge color={color}>{label}</Badge>
                   </div>
-                  <div className="num mt-0.5 text-xs text-ink-400">{bytes(b.size)} · {timeAgo(b.createdAt)} · <span className="font-mono">{b.name}</span></div>
+                  <div className="num mt-0.5 text-xs text-ink-400">{bytes(b.size)}, {timeAgo(b.createdAt)}</div>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button size="sm" variant="ghost" icon={Download} onClick={() => { window.location.href = `/api${base}/${encodeURIComponent(b.name)}/download`; }}>Download</Button>

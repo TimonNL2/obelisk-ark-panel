@@ -136,7 +136,7 @@ function UsersTab() {
               <div className="flex size-8 items-center justify-center rounded-full bg-brand-500/20 text-xs font-semibold uppercase text-brand-300">{u.username[0]}</div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{u.username} {u.id === me.id && <span className="text-xs text-ink-400">(you)</span>}</div>
-                <div className="text-xs text-ink-400">Created {dateTime(u.createdAt)} · last login {timeAgo(u.lastLoginAt)}</div>
+                <div className="text-xs text-ink-400">Created {dateTime(u.createdAt)}, last login {timeAgo(u.lastLoginAt)}</div>
               </div>
               <Button size="sm" variant="ghost" onClick={async () => {
                 const pw = await confirm({ title: `New password for ${u.username}`, input: true, placeholder: 'At least 8 characters', confirmLabel: 'Set password' });
