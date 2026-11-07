@@ -13,7 +13,10 @@ if [[ "$LOCAL" == "$REMOTE" ]]; then
 fi
 git pull --ff-only
 echo "Installing dependencies..."
+# "install" (not "ci") keeps the current modules if the network fails halfway
 npm install --no-audit --no-fund --loglevel=error
 echo "Building web interface..."
 npm run build --silent
+echo "Removing build tools..."
+npm prune --omit=dev --no-audit --no-fund --loglevel=error
 echo "New version: $(git rev-parse --short HEAD)"

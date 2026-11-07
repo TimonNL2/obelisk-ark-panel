@@ -64,6 +64,7 @@ class ConsoleHub {
   constructor() {
     this.buffers = new Map();
     this.subscribers = new Map();
+    this.viewers = new Map();
     this.tailers = new Map();
     this.timer = setInterval(() => this.pollAll(), 500);
     this.timer.unref?.();
@@ -84,8 +85,21 @@ class ConsoleHub {
     this.buffers.delete(id);
   }
 
+  /**
+   * Every 0.5 s for consoles someone is watching, every 5 s otherwise
+   * (still often enough for start detection and crash handling).
+   */
   pollAll() {
-    for (const tails of this.tailers.values()) for (const t of tails) t.poll();
+    this.ticks = (this.ticks || 0) + 1;
+    const slowTick = this.ticks % 10 === 0;
+    for (const [id, tails] of this.tailers) {
+      const watched = (this.viewers.get(id) || 0) > 0;
+      if (watched || slowTick) for (const t of tails) t.poll();
+    }
+  }
+
+  pollNow(id) {
+    for (const t of this.tailers.get(id) || []) t.poll();
   }
 
   ingest(id, source, lines) {
@@ -102,10 +116,18 @@ class ConsoleHub {
     return this.buffers.get(id) || [];
   }
 
-  subscribe(id, fn) {
+  /** viewer = a person watching the console (speeds up polling); internal listeners pass false. */
+  subscribe(id, fn, { viewer = false } = {}) {
     if (!this.subscribers.has(id)) this.subscribers.set(id, new Set());
     this.subscribers.get(id).add(fn);
-    return () => this.subscribers.get(id)?.delete(fn);
+    if (viewer) this.viewers.set(id, (this.viewers.get(id) || 0) + 1);
+    let active = true;
+    return () => {
+      if (!active) return;
+      active = false;
+      this.subscribers.get(id)?.delete(fn);
+      if (viewer) this.viewers.set(id, Math.max(0, (this.viewers.get(id) || 1) - 1));
+    };
   }
 
   /** Write a panel message into the server's console log. */

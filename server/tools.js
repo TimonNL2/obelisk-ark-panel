@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -164,6 +165,7 @@ async function installProtonAsset(name, url, sizeHint, log) {
   const tmp = path.join(paths.tmp, `${name}.tar.gz`);
   log(`Downloading ${name}${sizeHint ? ` (${Math.round(sizeHint / 1024 / 1024)} MB)` : ''}...`);
   await download(url, tmp, log);
+  await verifySha512(tmp, url.replace(/\.tar\.gz$/, '.sha512sum'), log);
   log('Extracting...');
   const before = new Set(protonVersions());
   await mustRun('tar', ['-xzf', tmp, '-C', paths.proton]);
@@ -172,6 +174,27 @@ async function installProtonAsset(name, url, sizeHint, log) {
   const added = protonVersions().find((v) => !before.has(v)) || name;
   log(`${added} installed.`);
   return added;
+}
+
+/** Compare a downloaded file with the SHA-512 checksum published next to it. Refuses mismatches. */
+async function verifySha512(file, sumUrl, log) {
+  let expected = null;
+  try {
+    const res = await fetch(sumUrl, { headers: { 'User-Agent': 'arkpanel' }, signal: AbortSignal.timeout(30000) });
+    if (res.ok) expected = (/\b([a-f0-9]{128})\b/i.exec(await res.text()) || [])[1]?.toLowerCase() || null;
+  } catch { /* handled below */ }
+  if (!expected) {
+    log('Warning: no checksum published for this download, skipping verification.');
+    return;
+  }
+  const hash = crypto.createHash('sha512');
+  await pipeline(fs.createReadStream(file), hash);
+  const actual = hash.digest('hex');
+  if (actual !== expected) {
+    fs.rmSync(file, { force: true });
+    throw new Error('Checksum mismatch: the download is corrupt or was tampered with. It was deleted, please try again.');
+  }
+  log('Checksum verified (SHA-512).');
 }
 
 let protonInstalling = null;

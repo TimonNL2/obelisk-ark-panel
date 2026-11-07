@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import express from 'express';
+import compression from 'compression';
 import { config, paths, ensureDirs } from './config.js';
 
 ensureDirs();
@@ -22,12 +23,35 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', config.trustProxy);
 
+// Security headers. The CSP only allows the panel's own scripts (no inline or third-party
+// code); inline *styles* are needed by the animation and editor libraries.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
 app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', CSP);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  if (config.secureCookies) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+  if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
   next();
 });
+
+// gzip responses (API JSON and the web interface), except file downloads which are already big/binary
+app.use(compression({ filter: (req, res) => !/\/(download|upload)\b/.test(req.path) && compression.filter(req, res) }));
 
 app.use('/api', express.json({ limit: '15mb' }));
 app.use('/api', authRouter);
@@ -36,8 +60,13 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Unknown API endpoin
 
 // Frontend (built by `npm run build`)
 if (fs.existsSync(path.join(paths.webDist, 'index.html'))) {
+  // Files in /assets have a content hash in their name, so browsers can cache them forever.
+  app.use('/assets', express.static(path.join(paths.webDist, 'assets'), { immutable: true, maxAge: '1y', index: false }));
   app.use(express.static(paths.webDist, { index: false, maxAge: '1h' }));
-  app.get('*', (req, res) => res.sendFile(path.join(paths.webDist, 'index.html')));
+  app.get('*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(paths.webDist, 'index.html'));
+  });
 } else {
   app.get('*', (req, res) => res.status(503).send('Frontend not built. Run "npm run build" in the panel folder.'));
 }

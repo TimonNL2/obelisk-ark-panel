@@ -75,6 +75,8 @@ export function buildLaunch(server, ctx) {
   const url = [
     server.map,
     'listen',
+    // ASA ignores SessionName from GameUserSettings.ini on start; pass it in the URL ("?" would break the URL)
+    `SessionName=${String(server.sessionName || server.name).replace(/[?"]/g, '')}`,
     `Port=${server.ports.game}`,
     game.usesQueryPort ? `QueryPort=${server.ports.query}` : null,
     'RCONEnabled=True',

@@ -144,6 +144,7 @@ if ! id "$SERVICE_USER" >/dev/null 2>&1; then
 fi
 mkdir -p "$DATA_DIR" "$ENV_DIR"
 chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
+chmod 750 "$DATA_DIR"  # game data, saves and the panel database are private
 
 cat >"$ENV_FILE" <<EOF
 # Obelisk configuration (loaded by the panel and the systemd service)
@@ -181,8 +182,11 @@ else
 fi
 
 step "Building the panel (this takes a minute)"
-as_user bash -c "cd '$APP_DIR' && npm ci --no-audit --no-fund --loglevel=error && npm run build --silent" >/tmp/arkpanel-build.log 2>&1 \
+# Build tools (Vite, React, ...) are only needed to build the web interface;
+# remove them afterwards so the installed panel stays small.
+as_user bash -c "cd '$APP_DIR' && npm ci --no-audit --no-fund --loglevel=error && npm run build --silent && npm prune --omit=dev --no-audit --no-fund --loglevel=error" >/tmp/arkpanel-build.log 2>&1 \
   || { tail -30 /tmp/arkpanel-build.log; die "Build failed, see /tmp/arkpanel-build.log"; }
+chmod 750 "$APP_DIR"
 ok "Panel built"
 
 # ----------------------------------------------------------------- tools
@@ -196,6 +200,26 @@ fi
 # ----------------------------------------------------------------- systemd
 step "Installing services"
 systemctl stop arkpanel 2>/dev/null || true
+
+# Sandbox for the panel and everything it starts (game servers inherit it):
+# no privilege escalation, no capabilities, read-only OS, writes only to the panel
+# folders. Kept compatible with Wine/Proton (no syscall or namespace filters).
+PROTECT_HOME="ProtectHome=yes"
+case "$DATA_DIR" in /home/*|/root/*) PROTECT_HOME="# ProtectHome off: data folder is inside /home" ;; esac
+HARDENING="NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=$APP_DIR $DATA_DIR /tmp
+$PROTECT_HOME
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+UMask=0027"
 
 cat >/etc/systemd/system/arkpanel.service <<EOF
 [Unit]
@@ -216,6 +240,8 @@ RestartSec=5
 KillMode=process
 LimitNOFILE=1000000
 TimeoutStopSec=20
+Environment=NODE_ENV=production NODE_OPTIONS=--max-old-space-size=384
+$HARDENING
 
 [Install]
 WantedBy=multi-user.target
@@ -238,6 +264,7 @@ EnvironmentFile=$ENV_FILE
 ExecStart=/bin/true
 ExecStop=$NODE_BIN $APP_DIR/server/cli.js stop-all 240
 TimeoutStopSec=330
+$HARDENING
 
 [Install]
 WantedBy=multi-user.target
@@ -273,10 +300,30 @@ sleep 2
 systemctl is-active --quiet arkpanel || { journalctl -u arkpanel -n 30 --no-pager; die "The panel did not start, see the log above."; }
 
 # ----------------------------------------------------------------- firewall
-if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
-  ufw allow "$PANEL_PORT/tcp" >/dev/null && ok "Opened port $PANEL_PORT/tcp in ufw"
-  ufw allow 7777:7800/udp >/dev/null && ok "Opened game ports 7777-7800/udp in ufw"
-  ufw allow 27015:27030/udp >/dev/null && ok "Opened query ports 27015-27030/udp in ufw (ASE)"
+# Only SSH, the panel and the game ports are reachable; RCON (2702x) and everything
+# else stays closed. Turned on when asked for (interactive) or with ARKPANEL_FIREWALL=1.
+if command -v ufw >/dev/null 2>&1 || apt-get install -y -qq ufw >/dev/null 2>&1; then
+  UFW_ACTIVE=0
+  ufw status 2>/dev/null | grep -q "Status: active" && UFW_ACTIVE=1
+  ENABLE_FW="${ARKPANEL_FIREWALL:-}"
+  if [[ $UFW_ACTIVE -eq 0 && -z "$ENABLE_FW" && $INTERACTIVE -eq 1 && "$MODE" == "install" ]]; then
+    step "Firewall"
+    ans="$(ask "Turn on the firewall? Only SSH, the panel and game ports stay open (Y/n)" "Y")"
+    [[ "$ans" =~ ^[Yy] ]] && ENABLE_FW=1
+  fi
+  if [[ $UFW_ACTIVE -eq 1 || "$ENABLE_FW" == "1" ]]; then
+    SSH_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}')"
+    ufw limit "${SSH_PORT:-22}/tcp" >/dev/null   # allows SSH but slows down brute force
+    ufw allow "$PANEL_PORT/tcp" >/dev/null
+    ufw allow 7777:7800/udp >/dev/null
+    ufw allow 27015:27030/udp >/dev/null
+    if [[ $UFW_ACTIVE -eq 0 ]]; then
+      ufw default deny incoming >/dev/null
+      ufw default allow outgoing >/dev/null
+      ufw --force enable >/dev/null
+    fi
+    ok "Firewall on: SSH ${SSH_PORT:-22}/tcp, panel $PANEL_PORT/tcp, game 7777-7800/udp, query 27015-27030/udp"
+  fi
 fi
 
 # ----------------------------------------------------------------- done

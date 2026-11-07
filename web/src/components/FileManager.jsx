@@ -6,7 +6,7 @@ import {
 import { get, post, put, upload, q } from '../lib/api.js';
 import { bytes, dateTime } from '../lib/format.js';
 import { Alert, Button, Card, Loading, Modal, ProgressBar, cx, useAction, useConfirm, useToast } from './ui.jsx';
-import CodeEditor from './CodeEditor.jsx';
+import CodeEditor from './LazyCodeEditor.jsx';
 
 const ARCHIVE = /\.(zip|tar|tar\.gz|tgz|tar\.xz|tar\.zst|tar\.bz2)$/i;
 const BINARY = /\.(exe|dll|so|pak|ucas|utoc|ark|arkprofile|arktribe|bin|png|jpg|jpeg|gz|zip|tar|tgz|xz|zst|7z|dat|db|sqlite|pdb|sig)$/i;

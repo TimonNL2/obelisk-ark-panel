@@ -14,6 +14,17 @@ export function attachWebsocket(httpServer) {
 
   httpServer.on('upgrade', (req, socket, head) => {
     if (!req.url.startsWith('/ws')) return socket.destroy();
+    // Only accept connections from the panel's own pages (blocks cross-site WebSocket hijacking).
+    const origin = req.headers.origin;
+    if (origin) {
+      let host = null;
+      try { host = new URL(origin).host; } catch { /* invalid */ }
+      const expected = req.headers['x-forwarded-host'] || req.headers.host;
+      if (!host || host !== expected) {
+        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+        return socket.destroy();
+      }
+    }
     const found = sessionUser(req.headers.cookie);
     if (!found) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
@@ -37,8 +48,9 @@ export function attachWebsocket(httpServer) {
       const id = String(msg.serverId || '');
       if (!getServer(id)) return send({ type: 'error', message: 'Server not found' });
       if (msg.type === 'subscribe' && !subs.has(id)) {
+        hub.pollNow(id);
         send({ type: 'history', serverId: id, lines: hub.history(id) });
-        subs.set(id, hub.subscribe(id, (lines) => send({ type: 'lines', serverId: id, lines })));
+        subs.set(id, hub.subscribe(id, (lines) => send({ type: 'lines', serverId: id, lines }), { viewer: true }));
       } else if (msg.type === 'unsubscribe') {
         subs.get(id)?.();
         subs.delete(id);

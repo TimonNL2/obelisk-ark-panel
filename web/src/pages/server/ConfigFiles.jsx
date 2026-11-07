@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, Save } from 'lucide-react';
 import { get, put } from '../../lib/api.js';
 import { Alert, Button, Loading, cx, useConfirm, useToast } from '../../components/ui.jsx';
-import CodeEditor from '../../components/CodeEditor.jsx';
+import CodeEditor from '../../components/LazyCodeEditor.jsx';
 
 const FILES = ['GameUserSettings.ini', 'Game.ini'];
 const MANAGED = 'SessionName, Port, QueryPort, RCONEnabled, RCONPort, ServerPassword, ServerAdminPassword, MaxPlayers, ActiveMods (ASE), Message of the day and everything set in the Game settings tab';

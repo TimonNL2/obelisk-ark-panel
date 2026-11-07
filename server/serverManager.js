@@ -153,7 +153,7 @@ function applyEditableFields(server, input, { creating = false } = {}) {
     server.map = map;
   }
   if (input.sessionName !== undefined || creating) {
-    server.sessionName = str(input.sessionName, 100) || server.name;
+    server.sessionName = (str(input.sessionName, 100) || server.name).replace(/[?"]/g, '');
   }
   if (input.maxPlayers !== undefined || creating) {
     const mp = Number(input.maxPlayers ?? game.defaultMaxPlayers);

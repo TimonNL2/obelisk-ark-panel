@@ -17,7 +17,17 @@ const load = (req) => {
 
 const members = (c) => db.data.servers.filter((s) => s.clusterId === c.id);
 
+// Walking the cluster folder is relatively expensive and the page polls every few seconds: cache it.
+const sizeCache = new Map();
 function folderSize(dir) {
+  const hit = sizeCache.get(dir);
+  if (hit && Date.now() - hit.at < 60000) return hit.size;
+  const size = walkSize(dir);
+  sizeCache.set(dir, { size, at: Date.now() });
+  return size;
+}
+
+function walkSize(dir) {
   let total = 0;
   const walk = (d) => {
     let list = [];

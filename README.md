@@ -102,6 +102,24 @@ sudo arkpanel uninstall
 
 You can also update the panel from **Settings → About & update**.
 
+## Security
+
+- **Runs unprivileged.** The panel and all game servers run as the `arkpanel` system user, never as root.
+- **Sandboxed with systemd.** No privilege escalation, no Linux capabilities, a read-only operating system, and write access only to `/opt/arkpanel`, the data folder and `/tmp`. Kernel settings, modules, logs and cgroups are protected.
+- **Private files.** The data folder and code are `750`, the database `600`, the config file `640`.
+- **Firewall (optional, offered by the installer).** Only SSH (rate-limited), the panel port and the game ports are open. RCON stays closed to the outside.
+- **Web panel:**
+  - strict Content-Security-Policy and other security headers
+  - httpOnly + SameSite=Strict session cookies, and a CSRF header on every change
+  - login rate limiting, and logins take the same time whether or not the username exists
+  - bcrypt password hashes
+  - WebSockets only from the panel's own origin
+  - every file manager path is locked inside its server folder, symlinks included
+- **Verified downloads.** GE-Proton is checked against its published SHA-512 checksum. Everything is downloaded over HTTPS.
+- **Lean install.** Build tools are removed after the web interface is built, and production dependencies have no known vulnerabilities (`npm audit`).
+
+Recommended: keep the panel on your LAN or a VPN (Tailscale, WireGuard), or put it behind HTTPS (below). Use a strong admin password.
+
 ## HTTPS / remote access
 
 The panel speaks plain HTTP. Keep it on your LAN or VPN, or put it behind an HTTPS reverse proxy. Example with [Caddy](https://caddyserver.com):

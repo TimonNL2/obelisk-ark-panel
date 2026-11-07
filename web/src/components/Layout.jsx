@@ -98,7 +98,7 @@ export default function Layout({ children }) {
   const [creating, setCreating] = useState(false);
   const location = useLocation();
   const servers = usePoll(() => get('/servers'), 3000);
-  const clusters = usePoll(() => get('/clusters'), 5000);
+  const clusters = usePoll(() => get('/clusters'), 10000);
   const ctx = {
     servers: servers.data,
     clusters: clusters.data,

@@ -130,9 +130,12 @@ export function clearLoginAttempts(ip) {
   attempts.delete(ip);
 }
 
+// A real hash, so a login with an unknown username takes as long as one with a wrong password
+// (otherwise the response time reveals which usernames exist).
+const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), 11);
+
 export async function verifyLogin(username, password) {
   const user = db.data.users.find((u) => u.username.toLowerCase() === String(username || '').trim().toLowerCase());
-  // always run bcrypt to keep timing similar
-  const ok = await bcrypt.compare(String(password || ''), user?.passwordHash || '$2a$11$invalidinvalidinvalidinvalidinvalidinvalidinvalidinva');
+  const ok = await bcrypt.compare(String(password || '').slice(0, 200), user?.passwordHash || DUMMY_HASH);
   return ok && user ? user : null;
 }
