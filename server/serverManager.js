@@ -176,7 +176,7 @@ function applyEditableFields(server, input, { creating = false } = {}) {
     } else server.clusterId = null;
   }
   if (input.mods !== undefined) server.mods = cleanMods(input.mods);
-  for (const key of ['battleye', 'crossplay', 'autoStart', 'autoRestart', 'autoUpdate']) {
+  for (const key of ['battleye', 'crossplay', 'autoStart', 'autoRestart', 'autoUpdate', 'virtualDisplay']) {
     if (input[key] !== undefined) server[key] = !!input[key];
   }
   if (input.extraArgs !== undefined) server.extraArgs = str(input.extraArgs, 1000);
@@ -406,9 +406,11 @@ async function doStart(server) {
     if (server.game === 'ase' && (server.mods || []).some((m) => m.enabled !== false)) ensureAseModTools(dir);
 
     hub.rotate(id);
-    const xvfbRun = ['/usr/bin/xvfb-run', '/bin/xvfb-run'].find((p) => fs.existsSync(p)) || null;
-    if (server.game === 'asa' && !xvfbRun) {
-      log(id, 'Warning: xvfb is not installed. Recent ASA versions crash without a (virtual) display. Fix: sudo apt install xvfb xauth (or run: sudo arkpanel update).');
+    // Virtual display is an opt-in fallback (Server settings → Advanced).
+    let xvfbRun = null;
+    if (server.game === 'asa' && server.virtualDisplay) {
+      xvfbRun = ['/usr/bin/xvfb-run', '/bin/xvfb-run'].find((p) => fs.existsSync(p)) || null;
+      if (!xvfbRun) log(id, 'Warning: "Virtual display" is on but xvfb is not installed (sudo apt install xvfb xauth). Starting without it.');
     }
     const launch = buildLaunch(server, {
       installDir: dir,

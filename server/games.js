@@ -89,9 +89,10 @@ export function buildLaunch(server, ctx) {
     args.push('-servergamelog');
     if (mods.length) args.push(`-mods=${mods.join(',')}`);
     if (server.crossplay !== false) args.push('-ServerPlatform=PC+XSX+WINGDK+PS5');
-    // Since the Genesis (v91) update the server opens a window and tries DirectX 12 at
-    // startup, which crashes on a headless machine. -dx11 + WineD3D + Xvfb avoids that.
-    args.push('-server', '-dx11');
+    args.push(`-port=${server.ports.game}`);
+    // Optional fallback: run inside a virtual display with DX11 (off by default; the
+    // verified working setup runs headless with WineD3D and the steamclient links).
+    if (ctx.xvfbRun) args.push('-server', '-dx11');
   } else {
     args.push('-server', '-log');
     if (mods.length) args.push('-automanagedmods');
@@ -125,6 +126,10 @@ export function buildLaunch(server, ctx) {
         PROTON_LOG: '0',
         PROTON_USE_WINED3D: '1', // OpenGL-based renderer instead of DirectX 12 / Vulkan
         PROTON_USE_XALIA: '0', // accessibility helper, fails without a real display
+        DXVK_HUD: '0',
+        SteamAppId: game.appId,
+        SteamGameId: game.appId,
+        STEAM_COMPAT_APP_ID: game.appId,
       },
       exe,
     };

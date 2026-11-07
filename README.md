@@ -140,7 +140,7 @@ The default data folder is `/var/lib/arkpanel`.
 ## Troubleshooting
 
 - **ASA crashes immediately on Proxmox** – set the VM CPU type to `host`.
-- **ASA exits a few seconds after "ARK Version"** – recent ASA builds need a display. Obelisk runs ASA inside Xvfb with `PROTON_USE_WINED3D=1` and `-dx11`; make sure `xvfb` is installed (`sudo arkpanel update` installs it).
+- **ASA exits a few seconds after "ARK Version"** – Proton needs Steam's `steamclient.so`. Obelisk links it from SteamCMD into `~/.steam/sdk64` on every start; if SteamCMD has no `linux64/steamclient.so`, reinstall it under Settings → Tools. As a last resort, turn on "Virtual display" in the server settings.
 - **Server stuck on “Starting”** – check the Console. The first ASA start takes long. If RCON never answers, check that the RCON port isn't used by something else.
 - **Players can't connect** – forward the game port as UDP to the VM and check the VM firewall (`sudo ufw status`).
 - **SteamCMD errors** – use *Validate game files* in the server's ⋮ menu, or reinstall SteamCMD under Settings → Tools.

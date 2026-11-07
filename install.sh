@@ -115,6 +115,12 @@ apt-get update -qq
 apt-get install -y -qq \
   ca-certificates curl git sudo tar gzip xz-utils zstd zip unzip rsync procps python3 \
   lib32gcc-s1 lib32stdc++6 libc6-i386 libfreetype6 libvulkan1 xvfb xauth libgl1 libgl1-mesa-dri >/dev/null
+# Libraries Wine/Proton expects on the host (names differ between releases, e.g. the
+# Ubuntu 24.04+ "t64" renames), so install them one by one and skip unknown names.
+for pkg in libx11-6 libxext6 libxrandr2 libnss3 libdbus-1-3 libudev1 libatomic1 \
+           libgnutls30t64 libgnutls30 libglib2.0-0t64 libglib2.0-0; do
+  apt-get install -y -qq "$pkg" >/dev/null 2>&1 || true
+done
 ok "System packages installed"
 
 NODE_OK=0

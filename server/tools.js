@@ -1,3 +1,4 @@
+import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -212,7 +213,40 @@ export function installLatestProton(log = console.log) {
 export async function ensureProton(log) {
   if (!activeProton()) await installRecommendedProton(log);
   fs.mkdirSync(paths.steamClient, { recursive: true });
+  ensureSteamClientLinks(log);
   return protonDir();
+}
+
+/**
+ * Proton's lsteamclient bridge needs the native Linux steamclient.so. Without it the ASA
+ * server stops right after "ARK Version" (exit code 21). SteamCMD ships both builds; link
+ * them where Proton looks: ~/.steam/sdk{32,64} and <STEAM_COMPAT_CLIENT_INSTALL_PATH>/linux{32,64}.
+ */
+export function ensureSteamClientLinks(log = () => {}) {
+  const home = process.env.HOME || os.homedir();
+  const pairs = [
+    ['linux64', [path.join(home, '.steam', 'sdk64'), path.join(paths.steamClient, 'linux64')]],
+    ['linux32', [path.join(home, '.steam', 'sdk32'), path.join(paths.steamClient, 'linux32')]],
+  ];
+  let missing = false;
+  for (const [arch, targets] of pairs) {
+    const src = path.join(paths.steamcmd, arch, 'steamclient.so');
+    if (!fs.existsSync(src)) { missing = true; continue; }
+    for (const dir of targets) {
+      const link = path.join(dir, 'steamclient.so');
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+        let current = null;
+        try { current = fs.readlinkSync(link); } catch { /* not a link */ }
+        if (current === src) continue;
+        fs.rmSync(link, { force: true });
+        fs.symlinkSync(src, link);
+      } catch (err) {
+        log(`Could not link ${link}: ${err.message}`);
+      }
+    }
+  }
+  if (missing) log('Warning: SteamCMD has no steamclient.so yet (run "Reinstall SteamCMD" under Settings → Tools). The ASA server may exit right after start.');
 }
 
 export function removeProton(version) {

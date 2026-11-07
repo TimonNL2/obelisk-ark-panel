@@ -13,7 +13,7 @@ function pick(s) {
   return {
     name: s.name, sessionName: s.sessionName, map: s.map, maxPlayers: s.maxPlayers, serverPassword: s.serverPassword || '',
     adminPassword: s.adminPassword, clusterId: s.clusterId || '', ports: { ...s.ports }, battleye: !!s.battleye,
-    crossplay: s.crossplay !== false, autoStart: !!s.autoStart, autoRestart: !!s.autoRestart, autoUpdate: !!s.autoUpdate,
+    crossplay: s.crossplay !== false, autoStart: !!s.autoStart, autoRestart: !!s.autoRestart, autoUpdate: !!s.autoUpdate, virtualDisplay: !!s.virtualDisplay,
     motd: s.motd || '', motdDuration: s.motdDuration || 30, extraArgs: s.extraArgs || '', extraUrlParams: s.extraUrlParams || '',
   };
 }
@@ -129,6 +129,7 @@ export default function StartupSettings({ server, onSaved }) {
             ? <Toggle checked={form.crossplay} onChange={(v) => set({ crossplay: v })} label="Crossplay" description="Allow Xbox, PlayStation and Windows Store players (-ServerPlatform=PC+XSX+WINGDK+PS5)." />
             : <Toggle checked={form.crossplay} onChange={(v) => set({ crossplay: v })} label="Crossplay (Epic)" description="Allow Epic Games Store players to join (-crossplay)." />}
           <Toggle checked={form.battleye} onChange={(v) => set({ battleye: v })} label="BattlEye anti-cheat" description="Off adds -NoBattlEye. BattlEye under Proton may not work on every setup." />
+          {server.game === 'asa' && <Toggle checked={form.virtualDisplay} onChange={(v) => set({ virtualDisplay: v })} label="Virtual display (troubleshooting)" description="Runs the server inside Xvfb with -dx11. Only turn this on if the server crashes or hangs on start with the default setup." />}
         </div>
       </Card>
 

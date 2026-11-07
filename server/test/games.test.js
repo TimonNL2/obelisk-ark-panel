@@ -8,7 +8,17 @@ const asa = {
 };
 const ctx = { installDir: '/srv/s1', protonDir: '/t/proton/GE-Proton10-34', prefixDir: '/p/s1', steamClientDir: '/t/steam' };
 
-test('ASA runs inside xvfb-run with WineD3D and -dx11', () => {
+test('ASA default launch: headless proton with WineD3D and Steam app id', () => {
+  const l = buildLaunch(asa, { ...ctx, xvfbRun: null });
+  assert.equal(l.cmd, '/t/proton/GE-Proton10-34/proton');
+  assert.ok(!l.args.includes('-dx11'));
+  assert.ok(l.args.includes('-port=7777'));
+  assert.equal(l.env.PROTON_USE_WINED3D, '1');
+  assert.equal(l.env.SteamAppId, '2430930');
+  assert.equal(l.env.STEAM_COMPAT_APP_ID, '2430930');
+});
+
+test('ASA with virtual display runs inside xvfb-run with -dx11', () => {
   const l = buildLaunch(asa, { ...ctx, xvfbRun: '/usr/bin/xvfb-run' });
   assert.equal(l.cmd, '/usr/bin/xvfb-run');
   assert.deepEqual(l.args.slice(0, 6), ['-a', '-s', '-screen 0 1024x768x24 -nolisten tcp', '/t/proton/GE-Proton10-34/proton', 'run', '/srv/s1/ShooterGame/Binaries/Win64/ArkAscendedServer.exe']);
