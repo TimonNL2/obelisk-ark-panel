@@ -77,7 +77,7 @@ systemRouter.get('/system/info', (req, res) => {
     localIps: localIps(),
     panelPort: config.port,
     steamcmd: { installed: tools.steamcmdInstalled(), queue: tools.steamcmdQueueLength() },
-    proton: { versions: tools.protonVersions(), active: tools.activeProton() },
+    proton: { versions: tools.protonVersions(), active: tools.activeProton(), recommended: tools.RECOMMENDED_PROTON },
     lastUpdateCheck: db.data.lastUpdateCheck || null,
     jobs,
   });
@@ -85,6 +85,11 @@ systemRouter.get('/system/info', (req, res) => {
 
 systemRouter.post('/system/steamcmd/install', (req, res) => {
   startJob('steamcmd', (log) => tools.installSteamcmd(log));
+  res.status(202).json({ ok: true });
+});
+
+systemRouter.post('/system/proton/install-recommended', (req, res) => {
+  startJob('proton', (log) => tools.installRecommendedProton(log));
   res.status(202).json({ ok: true });
 });
 

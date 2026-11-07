@@ -88,18 +88,30 @@ function Tools() {
       </Card>
 
       <Card>
-        <CardHeader title="GE-Proton" subtitle="Compatibility layer that runs the Windows-only ARK: Survival Ascended server on Linux"
-          actions={<Button size="sm" icon={Download} loading={busy === 'proton' || info.jobs.proton?.running} onClick={() => start('proton', '/system/proton/install-latest')}>Install latest</Button>} />
+        <CardHeader title="GE-Proton" subtitle={`Runs the Windows-only ARK: Survival Ascended server on Linux. ${info.proton.recommended} is the tested, recommended version.`}
+          actions={<>
+            {!info.proton.versions.includes(info.proton.recommended) && (
+              <Button size="sm" variant="primary" icon={Download} loading={busy === 'proton' || info.jobs.proton?.running} onClick={() => start('proton', '/system/proton/install-recommended')}>Install {info.proton.recommended}</Button>
+            )}
+            <Button size="sm" variant="ghost" icon={Download} loading={busy === 'proton-latest'} onClick={async () => {
+              if (await confirm({ title: 'Install the newest GE-Proton?', message: `Newer is not always better: GE-Proton 11 makes the ASA server hang before it writes any log. The newest version is installed but not activated; ${info.proton.recommended} stays active until you switch.`, confirmLabel: 'Install newest' })) start('proton', '/system/proton/install-latest');
+            }}>Install newest</Button>
+          </>} />
         {info.proton.versions.length === 0 ? (
-          <div className="p-5 text-sm text-ink-300">No Proton version installed. It is downloaded automatically when you start your first ASA server, or click “Install latest”.</div>
+          <div className="p-5 text-sm text-ink-300">No Proton version installed yet. {info.proton.recommended} is downloaded automatically when you start your first ASA server.</div>
         ) : (
           <div className="divide-y divide-ink-700/70">
             {info.proton.versions.map((v) => (
-              <div key={v} className="flex items-center gap-3 px-5 py-3">
+              <div key={v} className="flex flex-wrap items-center gap-3 px-5 py-3">
                 <span className="flex-1 font-mono text-sm">{v}</span>
+                {v === info.proton.recommended && <Badge color="teal">Recommended</Badge>}
+                {/^GE-Proton1[1-9]/.test(v) && <Badge color="yellow">ASA hangs on start</Badge>}
                 {v === info.proton.active ? <Badge color="green">Active</Badge> : (
                   <>
-                    <Button size="sm" variant="ghost" onClick={() => run('act', async () => { await put('/system/proton/active', { version: v }); await reload(); }, `${v} is now active (restart ASA servers to use it)`)}>Use this</Button>
+                    <Button size="sm" variant="ghost" onClick={async () => {
+                      if (/^GE-Proton1[1-9]/.test(v) && !(await confirm({ title: `Use ${v}?`, message: 'GE-Proton 11 is known to make the ASA server hang before it writes any log. Only switch if you want to test it.', confirmLabel: 'Use anyway', danger: true }))) return;
+                      run('act', async () => { await put('/system/proton/active', { version: v }); await reload(); }, `${v} is now active. Restart ASA servers to use it; their Wine prefix is rebuilt automatically.`);
+                    }}>Use this</Button>
                     <Button size="icon" variant="danger-ghost" aria-label="Remove" onClick={async () => { if (await confirm({ title: `Remove ${v}?`, danger: true, confirmLabel: 'Remove' })) run('rm', async () => { await del(`/system/proton/${v}`); await reload(); }); }}><Trash2 className="size-4" /></Button>
                   </>
                 )}

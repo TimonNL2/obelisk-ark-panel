@@ -44,6 +44,12 @@ class Store {
       const data = { ...base, ...parsed, settings: { ...base.settings, ...(parsed.settings || {}) } };
       // the panel was renamed from "ARK Panel" to "Obelisk"
       if (data.settings.panelName === 'ARK Panel') data.settings.panelName = 'Obelisk';
+      // Older versions auto-activated the newest GE-Proton (11.x), which hangs the ASA server.
+      // Clear that once so the pinned known-good version is used.
+      if (!data.protonPinMigrated) {
+        if (/^GE-Proton1[1-9]/.test(data.settings.activeProton || '')) data.settings.activeProton = '';
+        data.protonPinMigrated = true;
+      }
       return data;
     } catch (err) {
       if (err.code !== 'ENOENT') {

@@ -11,7 +11,7 @@ import { scanTaggedProcesses, processUsage, cpuPercent, killPids } from './util/
 import { setIniValues } from './util/ini.js';
 import { runCommand } from './util/exec.js';
 import { badRequest, conflict, notFound, sleep } from './util/errors.js';
-import { ensureSteamcmd, ensureProton, steamAppUpdate, installedBuildId, latestBuildId, protonDir } from './tools.js';
+import { ensureSteamcmd, ensureProton, steamAppUpdate, installedBuildId, latestBuildId, protonDir, RECOMMENDED_PROTON } from './tools.js';
 import { publicIp } from './network.js';
 
 /* ------------------------------------------------------------------ */
@@ -384,8 +384,17 @@ async function doStart(server) {
     if (!fs.existsSync(path.join(dir, game.binary))) throw new Error(`Game binary not found (${game.binary}). Try "Validate files".`);
     let proton = null;
     if (server.game === 'asa') {
-      if (!protonDir()) log(id, 'GE-Proton is not installed yet, downloading it first...');
+      if (!protonDir()) log(id, `GE-Proton ${RECOMMENDED_PROTON} is not installed yet, downloading it first...`);
       proton = await ensureProton((m) => log(id, m, 'Proton'));
+      const version = path.basename(proton);
+      // A Wine prefix made by another Proton version can break the server: rebuild it.
+      // It only holds Wine's own files; saves and configs live in the server folder.
+      if (server.protonUsed !== version && fs.existsSync(prefixDir(id))) {
+        log(id, `Proton version changed (${server.protonUsed || 'unknown'} -> ${version}), rebuilding the Wine prefix...`);
+        await fs.promises.rm(prefixDir(id), { recursive: true, force: true });
+      }
+      server.protonUsed = version;
+      log(id, `Using ${version}.`);
       fs.mkdirSync(prefixDir(id), { recursive: true });
     }
     let cluster = null;

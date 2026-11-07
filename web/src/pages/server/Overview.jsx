@@ -47,6 +47,12 @@ export default function Overview({ server }) {
           <JobProgress job={r.job} />
         </Card>
       )}
+      {r.state === 'starting' && !r.job && r.startedAt && Date.now() - r.startedAt > 12 * 60000 && (
+        <Alert type="warning" title="This is taking unusually long">
+          Check the console. If the game log stays empty and CPU stays near 0%, the server is stuck: stop it,
+          check the Proton version under Settings → Tools{server.game === 'asa' ? ' (GE-Proton10-34 is the tested one)' : ''}, and check the map name and mods.
+        </Alert>
+      )}
       {r.state === 'starting' && !r.job && (
         <Alert type="info" title="Server is starting">
           {server.game === 'asa'

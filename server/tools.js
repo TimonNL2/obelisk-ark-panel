@@ -138,19 +138,62 @@ export function protonVersions() {
   }
 }
 
+/**
+ * Known-good GE-Proton build for the ASA dedicated server.
+ * GE-Proton 11.x hangs ArkAscendedServer.exe before it writes any log line, while
+ * 10-34 starts normally on the same files, so we pin it instead of using "latest".
+ */
+export const RECOMMENDED_PROTON = 'GE-Proton10-34';
+
 export function activeProton() {
   const versions = protonVersions();
   const chosen = settings().activeProton;
   if (chosen && versions.includes(chosen)) return chosen;
-  return versions[0] || null;
+  if (versions.includes(RECOMMENDED_PROTON)) return RECOMMENDED_PROTON;
+  return null; // ensureProton() installs the recommended version
 }
 
 export const protonDir = (version = activeProton()) => (version ? path.join(paths.proton, version) : null);
 
+async function installProtonAsset(name, url, sizeHint, log) {
+  if (protonVersions().includes(name)) {
+    log(`${name} is already installed.`);
+    return name;
+  }
+  const tmp = path.join(paths.tmp, `${name}.tar.gz`);
+  log(`Downloading ${name}${sizeHint ? ` (${Math.round(sizeHint / 1024 / 1024)} MB)` : ''}...`);
+  await download(url, tmp, log);
+  log('Extracting...');
+  const before = new Set(protonVersions());
+  await mustRun('tar', ['-xzf', tmp, '-C', paths.proton]);
+  fs.rmSync(tmp, { force: true });
+  // the folder inside the archive may be named slightly differently than the asset
+  const added = protonVersions().find((v) => !before.has(v)) || name;
+  log(`${added} installed.`);
+  return added;
+}
+
 let protonInstalling = null;
-export function installLatestProton(log = console.log) {
+function once(fn) {
   if (protonInstalling) return protonInstalling;
-  protonInstalling = (async () => {
+  protonInstalling = fn().finally(() => { protonInstalling = null; });
+  return protonInstalling;
+}
+
+/** Install the pinned, known-good version and make it active. */
+export function installRecommendedProton(log = console.log) {
+  return once(async () => {
+    const url = `https://github.com/GloriousEggroll/proton-ge-custom/releases/download/${RECOMMENDED_PROTON}/${RECOMMENDED_PROTON}.tar.gz`;
+    const name = await installProtonAsset(RECOMMENDED_PROTON, url, 0, log);
+    db.data.settings.activeProton = name;
+    db.save();
+    return name;
+  });
+}
+
+/** Install the newest GE-Proton release (not activated automatically: newer is not always better for ASA). */
+export function installLatestProton(log = console.log) {
+  return once(async () => {
     log('Looking up the latest GE-Proton release...');
     const res = await fetch(PROTON_RELEASES, { headers: { 'User-Agent': 'arkpanel', Accept: 'application/vnd.github+json' } });
     if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
@@ -160,27 +203,14 @@ export function installLatestProton(log = console.log) {
     const asset = tarballs.find((a) => /^GE-Proton[\d-]+\.tar\.gz$/.test(a.name))
       || tarballs.find((a) => !/aarch64|arm64/i.test(a.name));
     if (!asset) throw new Error('No x86_64 .tar.gz asset found in the latest GE-Proton release');
-    const name = asset.name.replace(/\.tar\.gz$/, '');
-    if (protonVersions().includes(name)) {
-      log(`${name} is already installed.`);
-    } else {
-      const tmp = path.join(paths.tmp, asset.name);
-      log(`Downloading ${name} (${Math.round(asset.size / 1024 / 1024)} MB)...`);
-      await download(asset.browser_download_url, tmp, log);
-      log('Extracting...');
-      await mustRun('tar', ['-xzf', tmp, '-C', paths.proton]);
-      fs.rmSync(tmp, { force: true });
-      log(`${name} installed.`);
-    }
-    db.data.settings.activeProton = name;
-    db.save();
+    const name = await installProtonAsset(asset.name.replace(/\.tar\.gz$/, ''), asset.browser_download_url, asset.size, log);
+    log(`Installed but not activated. The recommended version for ASA is ${RECOMMENDED_PROTON}; switch under Settings → Tools if you want to try ${name}.`);
     return name;
-  })().finally(() => { protonInstalling = null; });
-  return protonInstalling;
+  });
 }
 
 export async function ensureProton(log) {
-  if (!activeProton()) await installLatestProton(log);
+  if (!activeProton()) await installRecommendedProton(log);
   fs.mkdirSync(paths.steamClient, { recursive: true });
   return protonDir();
 }

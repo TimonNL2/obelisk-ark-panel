@@ -75,7 +75,7 @@ try {
         else console.log('[steamcmd] already installed');
       } catch (err) { failed = true; console.error(`[steamcmd] ${err.message}`); }
       try {
-        if (!tools.activeProton()) await tools.installLatestProton((m) => console.log(`[proton] ${m}`));
+        if (!tools.activeProton()) await tools.installRecommendedProton((m) => console.log(`[proton] ${m}`));
         else console.log(`[proton] ${tools.activeProton()} already installed`);
       } catch (err) { failed = true; console.error(`[proton] ${err.message}`); }
       db.saveNow();
