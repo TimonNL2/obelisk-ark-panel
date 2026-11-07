@@ -134,7 +134,7 @@ systemRouter.get('/settings', (req, res) => {
 systemRouter.put('/settings', (req, res) => {
   const s = db.data.settings;
   const b = req.body || {};
-  if (b.panelName !== undefined) s.panelName = String(b.panelName).trim().slice(0, 40) || 'ARK Panel';
+  if (b.panelName !== undefined) s.panelName = String(b.panelName).trim().slice(0, 40) || 'Obelisk';
   if (b.publicIp !== undefined) {
     const ip = String(b.publicIp).trim();
     if (ip && !/^[a-zA-Z0-9.:-]+$/.test(ip)) throw badRequest('Invalid IP / hostname');

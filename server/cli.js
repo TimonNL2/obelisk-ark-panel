@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ARK Panel command line helper.
+ * Obelisk command line helper.
  *   node server/cli.js create-user <username> [password]
  *   node server/cli.js reset-password <username> [password]
  *   node server/cli.js list-users

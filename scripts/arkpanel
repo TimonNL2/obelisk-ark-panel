@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ARK Panel management command (installed to /usr/local/bin/arkpanel)
+# Obelisk management command (installed to /usr/local/bin/arkpanel)
 set -euo pipefail
 
 APP_DIR="/opt/arkpanel"
@@ -12,7 +12,7 @@ cli() { sudo -u "$SERVICE_USER" -H "$NODE_BIN" "$APP_DIR/server/cli.js" "$@"; }
 
 usage() {
   cat <<EOF
-ARK Panel
+Obelisk
 
 Usage: sudo arkpanel <command>
 
@@ -46,7 +46,7 @@ case "$cmd" in
     ;;
   update)
     need_root update
-    echo "Updating ARK Panel..."
+    echo "Updating Obelisk..."
     sudo -u "$SERVICE_USER" -H git -C "$APP_DIR" pull --ff-only
     bash "$APP_DIR/install.sh" --update
     ;;
@@ -67,7 +67,7 @@ case "$cmd" in
     ;;
   uninstall)
     need_root uninstall
-    read -r -p "Remove ARK Panel? Running game servers will be stopped. [y/N] " a
+    read -r -p "Remove Obelisk? Running game servers will be stopped. [y/N] " a
     [[ "$a" =~ ^[Yy]$ ]] || exit 0
     # shellcheck disable=SC1090
     DATA_DIR="$(. "$ENV_FILE" 2>/dev/null; echo "${DATA_DIR:-/var/lib/arkpanel}")"
@@ -86,7 +86,7 @@ case "$cmd" in
       echo "Game data kept in $DATA_DIR."
     fi
     rm -f /usr/local/bin/arkpanel
-    echo "ARK Panel removed."
+    echo "Obelisk removed."
     ;;
   help|-h|--help|*)
     usage

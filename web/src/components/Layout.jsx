@@ -104,7 +104,7 @@ export default function Layout({ children }) {
           <header className="flex items-center gap-3 border-b border-ink-700 bg-ink-900 px-4 py-3 lg:hidden">
             <button type="button" onClick={() => setOpen(true)} className="rounded-md p-1.5 text-ink-200 hover:bg-ink-700" aria-label="Open menu"><Menu className="size-5" /></button>
             <Logo className="size-6" />
-            <span className="text-sm font-semibold">ARK Panel</span>
+            <span className="text-sm font-semibold">Obelisk</span>
           </header>
           <main key={location.pathname.split('/').slice(0, 3).join('/')} className="min-h-0 flex-1 overflow-y-auto">
             <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</div>

@@ -62,7 +62,7 @@ await initServers();
 initScheduler();
 
 server.listen(config.port, config.host, () => {
-  console.log(`[panel] ARK Panel ${config.version} listening on http://${config.host}:${config.port}`);
+  console.log(`[panel] Obelisk ${config.version} listening on http://${config.host}:${config.port}`);
   console.log(`[panel] Data directory: ${config.dataDir}`);
 });
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-#  ARK Panel installer
+#  Obelisk installer
 #  A web panel for ARK: Survival Ascended / Survival Evolved servers and clusters.
 #
 #  Install:   curl -fsSL https://raw.githubusercontent.com/<you>/<repo>/main/install.sh | sudo bash
@@ -18,7 +18,7 @@
 set -euo pipefail
 
 # Change this to your own repository after forking / pushing it to GitHub.
-DEFAULT_REPO="https://github.com/YOUR_GITHUB_USER/arkpanel.git"
+DEFAULT_REPO="https://github.com/TimonNL2/obelisk-ark-panel.git"
 
 REPO_URL="${ARKPANEL_REPO:-$DEFAULT_REPO}"
 BRANCH="${ARKPANEL_BRANCH:-main}"
@@ -72,7 +72,7 @@ fi
 [[ "$(uname -m)" == "x86_64" ]] || die "ARK servers need an x86_64 (amd64) machine."
 
 echo
-echo "${C_BOLD}  ARK Panel ${MODE}${C_RESET}  ${C_DIM}(${PRETTY_NAME:-linux})${C_RESET}"
+echo "${C_BOLD}  Obelisk ${MODE}${C_RESET}  ${C_DIM}(${PRETTY_NAME:-linux})${C_RESET}"
 
 if [[ -f "$ENV_FILE" ]]; then
   # existing install: keep its settings
@@ -127,7 +127,7 @@ mkdir -p "$DATA_DIR" "$ENV_DIR"
 chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
 
 cat >"$ENV_FILE" <<EOF
-# ARK Panel configuration (loaded by the panel and the systemd service)
+# Obelisk configuration (loaded by the panel and the systemd service)
 PORT=$PANEL_PORT
 HOST=0.0.0.0
 DATA_DIR=$DATA_DIR
@@ -180,7 +180,7 @@ systemctl stop arkpanel 2>/dev/null || true
 
 cat >/etc/systemd/system/arkpanel.service <<EOF
 [Unit]
-Description=ARK Panel (web panel for ARK servers)
+Description=Obelisk (web panel for ARK servers)
 After=network-online.target
 Wants=network-online.target
 
@@ -206,7 +206,7 @@ EOF
 # Ordered Before= the panel, so on shutdown it runs after the panel has stopped.
 cat >/etc/systemd/system/arkpanel-servers.service <<EOF
 [Unit]
-Description=ARK Panel - save and stop game servers on shutdown
+Description=Obelisk - save and stop game servers on shutdown
 Before=arkpanel.service
 After=network-online.target
 
@@ -263,7 +263,7 @@ fi
 # ----------------------------------------------------------------- done
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo
-echo "${C_GREEN}${C_BOLD}  ARK Panel is ${MODE}ed and running!${C_RESET}"
+echo "${C_GREEN}${C_BOLD}  Obelisk is ${MODE}ed and running!${C_RESET}"
 echo
 echo "    Open:      ${C_BOLD}http://${IP:-<server-ip>}:${PANEL_PORT}${C_RESET}"
 [[ -n "$ADMIN_MSG" ]] && echo "$ADMIN_MSG"

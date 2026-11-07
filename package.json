@@ -1,7 +1,7 @@
 {
-  "name": "arkpanel",
+  "name": "obelisk-ark-panel",
   "version": "1.0.0",
-  "description": "A simple, focused web panel for hosting ARK: Survival Ascended and ARK: Survival Evolved servers and clusters on Linux.",
+  "description": "Obelisk: a simple, focused web panel for hosting ARK: Survival Ascended and ARK: Survival Evolved servers and clusters on Linux.",
   "private": true,
   "type": "module",
   "license": "MIT",

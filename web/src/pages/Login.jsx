@@ -29,7 +29,7 @@ export default function Login({ onLogin }) {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
           <Logo className="size-12" />
-          <h1 className="mt-4 text-xl font-semibold tracking-tight">ARK Panel</h1>
+          <h1 className="mt-4 text-xl font-semibold tracking-tight">Obelisk</h1>
           <p className="mt-1 text-sm text-ink-300">Sign in to manage your servers</p>
         </div>
         <form onSubmit={submit} className="space-y-4 rounded-xl border border-ink-700 bg-ink-850 p-6 shadow-2xl shadow-black/30">

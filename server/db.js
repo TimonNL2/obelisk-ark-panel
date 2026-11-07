@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { paths } from './config.js';
 
 const DEFAULT_SETTINGS = {
-  panelName: 'ARK Panel',
+  panelName: 'Obelisk',
   publicIp: '',
   backupRetention: 10,
   updateCheckMinutes: 60,

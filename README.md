@@ -1,6 +1,6 @@
-# ARK Panel
+# Obelisk — ARK server panel
 
-A simple, self-hosted web panel for running **ARK: Survival Ascended** and **ARK: Survival Evolved** dedicated servers and clusters on Linux.
+Obelisk is a simple, self-hosted web panel for running **ARK: Survival Ascended** and **ARK: Survival Evolved** dedicated servers and clusters on Linux.
 
 Think Pelican / Pterodactyl, but built for one job only: no eggs, no Docker, no Wings. One install script, one service, everything managed from the browser.
 
@@ -42,7 +42,7 @@ Use a **VM** (not an LXC container) with Ubuntu Server:
 On a fresh Ubuntu Server, run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_GITHUB_USER/arkpanel/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/TimonNL2/obelisk-ark-panel/main/install.sh | sudo bash
 ```
 
 The installer:
@@ -59,7 +59,7 @@ Then open `http://<server-ip>:8080` and log in.
 Unattended install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_GITHUB_USER/arkpanel/main/install.sh | sudo ARKPANEL_YES=1 ARKPANEL_ADMIN_PASSWORD='choose-a-password' bash
+curl -fsSL https://raw.githubusercontent.com/TimonNL2/obelisk-ark-panel/main/install.sh | sudo ARKPANEL_YES=1 ARKPANEL_ADMIN_PASSWORD='choose-a-password' bash
 ```
 
 Other variables: `ARKPANEL_PORT`, `ARKPANEL_DATA_DIR`, `ARKPANEL_ADMIN_USER`, `ARKPANEL_REPO`, `ARKPANEL_BRANCH`.
