@@ -406,6 +406,10 @@ async function doStart(server) {
     if (server.game === 'ase' && (server.mods || []).some((m) => m.enabled !== false)) ensureAseModTools(dir);
 
     hub.rotate(id);
+    const xvfbRun = ['/usr/bin/xvfb-run', '/bin/xvfb-run'].find((p) => fs.existsSync(p)) || null;
+    if (server.game === 'asa' && !xvfbRun) {
+      log(id, 'Warning: xvfb is not installed. Recent ASA versions crash without a (virtual) display. Fix: sudo apt install xvfb xauth (or run: sudo arkpanel update).');
+    }
     const launch = buildLaunch(server, {
       installDir: dir,
       cluster,
@@ -413,6 +417,7 @@ async function doStart(server) {
       protonDir: proton,
       prefixDir: prefixDir(id),
       steamClientDir: paths.steamClient,
+      xvfbRun,
     });
     log(id, `Starting ${game.short} server "${server.name}" on map ${mapName(server)}...`);
     log(id, `Launch: ${path.basename(launch.cmd)} ${launch.args.join(' ')}`);

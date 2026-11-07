@@ -114,7 +114,7 @@ dpkg --add-architecture i386
 apt-get update -qq
 apt-get install -y -qq \
   ca-certificates curl git sudo tar gzip xz-utils zstd zip unzip rsync procps python3 \
-  lib32gcc-s1 lib32stdc++6 libc6-i386 libfreetype6 libvulkan1 >/dev/null
+  lib32gcc-s1 lib32stdc++6 libc6-i386 libfreetype6 libvulkan1 xvfb xauth libgl1 libgl1-mesa-dri >/dev/null
 ok "System packages installed"
 
 NODE_OK=0

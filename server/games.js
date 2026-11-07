@@ -89,6 +89,9 @@ export function buildLaunch(server, ctx) {
     args.push('-servergamelog');
     if (mods.length) args.push(`-mods=${mods.join(',')}`);
     if (server.crossplay !== false) args.push('-ServerPlatform=PC+XSX+WINGDK+PS5');
+    // Since the Genesis (v91) update the server opens a window and tries DirectX 12 at
+    // startup, which crashes on a headless machine. -dx11 + WineD3D + Xvfb avoids that.
+    args.push('-server', '-dx11');
   } else {
     args.push('-server', '-log');
     if (mods.length) args.push('-automanagedmods');
@@ -106,15 +109,22 @@ export function buildLaunch(server, ctx) {
   args.push(...splitArgs(server.extraArgs));
 
   if (server.game === 'asa') {
+    const proton = [path.join(ctx.protonDir, 'proton'), 'run', exe, ...args];
+    // Run inside a virtual X display. "-a" picks a free display number per server.
+    const wrapped = ctx.xvfbRun
+      ? [ctx.xvfbRun, '-a', '-s', '-screen 0 1024x768x24 -nolisten tcp', ...proton]
+      : proton;
     return {
-      cmd: path.join(ctx.protonDir, 'proton'),
-      args: ['run', exe, ...args],
+      cmd: wrapped[0],
+      args: wrapped.slice(1),
       cwd: path.dirname(exe),
       env: {
         STEAM_COMPAT_DATA_PATH: ctx.prefixDir,
         STEAM_COMPAT_CLIENT_INSTALL_PATH: ctx.steamClientDir,
         WINEDEBUG: '-all',
         PROTON_LOG: '0',
+        PROTON_USE_WINED3D: '1', // OpenGL-based renderer instead of DirectX 12 / Vulkan
+        PROTON_USE_XALIA: '0', // accessibility helper, fails without a real display
       },
       exe,
     };
