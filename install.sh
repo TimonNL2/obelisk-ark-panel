@@ -110,16 +110,19 @@ fi
 # ----------------------------------------------------------------- packages
 step "Installing system packages"
 export DEBIAN_FRONTEND=noninteractive
+# Ubuntu's needrestart shows "Pending kernel upgrade" / "restart services?" dialogs after
+# apt. With apt output hidden those dialogs are invisible and wait forever: skip them.
+export NEEDRESTART_MODE=a NEEDRESTART_SUSPEND=1
 dpkg --add-architecture i386
 apt-get update -qq
-apt-get install -y -qq \
+apt-get install -y -qq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold \
   ca-certificates curl git sudo tar gzip xz-utils zstd zip unzip rsync procps python3 \
   lib32gcc-s1 lib32stdc++6 libc6-i386 libfreetype6 libvulkan1 xvfb xauth libgl1 libgl1-mesa-dri >/dev/null
 # Libraries Wine/Proton expects on the host (names differ between releases, e.g. the
 # Ubuntu 24.04+ "t64" renames), so install them one by one and skip unknown names.
 for pkg in libx11-6 libxext6 libxrandr2 libnss3 libdbus-1-3 libudev1 libatomic1 \
            libgnutls30t64 libgnutls30 libglib2.0-0t64 libglib2.0-0; do
-  apt-get install -y -qq "$pkg" >/dev/null 2>&1 || true
+  apt-get install -y -qq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "$pkg" >/dev/null 2>&1 || true
 done
 ok "System packages installed"
 
@@ -131,7 +134,7 @@ fi
 if [[ $NODE_OK -eq 0 ]]; then
   info "Installing Node.js ${NODE_MAJOR}.x (NodeSource)..."
   curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - >/dev/null
-  apt-get install -y -qq nodejs >/dev/null
+  apt-get install -y -qq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold nodejs >/dev/null
 fi
 NODE_BIN="$(command -v node)"
 ok "Node.js $(node -v)"
@@ -308,7 +311,7 @@ systemctl is-active --quiet arkpanel || { journalctl -u arkpanel -n 30 --no-page
 # ----------------------------------------------------------------- firewall
 # Only SSH, the panel and the game ports are reachable; RCON (2702x) and everything
 # else stays closed. Turned on when asked for (interactive) or with ARKPANEL_FIREWALL=1.
-if command -v ufw >/dev/null 2>&1 || apt-get install -y -qq ufw >/dev/null 2>&1; then
+if command -v ufw >/dev/null 2>&1 || apt-get install -y -qq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold ufw >/dev/null 2>&1; then
   UFW_ACTIVE=0
   ufw status 2>/dev/null | grep -q "Status: active" && UFW_ACTIVE=1
   ENABLE_FW="${ARKPANEL_FIREWALL:-}"
